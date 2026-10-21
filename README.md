@@ -16,6 +16,7 @@ Simulación Laboral NoCountry — S10-26, equipo 8.
 
 - Node.js 22 o superior (`nvm use` toma la versión de `.nvmrc`)
 - npm 10 o superior
+- Docker con Docker Compose (para la base de datos local)
 
 ## Puesta en marcha
 
@@ -31,6 +32,28 @@ npm run dev   # levanta ambos en paralelo
 
 Variables de entorno del backend: copiá `backend/.env.example` a `backend/.env` si necesitás cambiar el puerto.
 
+## Base de datos local
+
+PostgreSQL 17 con pgvector (imagen `pgvector/pgvector`), equivalente a Neon en producción.
+
+```bash
+cp .env.example .env   # opcional; en cmd: copy .env.example .env
+npm run db:up          # espera a que Postgres esté listo
+```
+
+Sin `.env`, Compose usa los mismos valores por defecto (`openbridge`).
+
+Verificar que la extensión `vector` está habilitada:
+
+```bash
+npm run db:psql
+# dentro de psql:
+SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
+```
+
+- Los datos persisten en el volumen `pgdata`: `npm run db:down` los conserva.
+- Los scripts de `docker/postgres/init/` solo corren con el volumen vacío. Para reiniciar la base desde cero: `docker compose down -v`.
+
 ## Scripts (desde la raíz)
 
 | Script                 | Qué hace                                                            |
@@ -41,6 +64,10 @@ Variables de entorno del backend: copiá `backend/.env.example` a `backend/.env`
 | `npm test`             | Tests de los workspaces (backend: Vitest + supertest)               |
 | `npm run format`       | Formatea todo el repo con Prettier                                  |
 | `npm run format:check` | Verifica el formato sin modificar archivos                          |
+| `npm run db:up`        | Levanta Postgres + pgvector en segundo plano                        |
+| `npm run db:down`      | Detiene la base (los datos se conservan)                            |
+| `npm run db:logs`      | Sigue los logs del contenedor `db`                                  |
+| `npm run db:psql`      | Abre `psql` dentro del contenedor                                   |
 
 Cada workspace también se puede ejecutar solo: `npm run dev -w backend`.
 
@@ -53,6 +80,9 @@ Cada workspace también se puede ejecutar solo: `npm run dev -w backend`.
 ├── backend/           # Express + TypeScript
 │   ├── src/           # app.ts (app), server.ts (listen)
 │   └── test/          # Vitest + supertest
+├── docker/postgres/init/  # scripts de inicialización (extensión vector)
+├── docker-compose.yml # Postgres + pgvector local
+├── .env.example       # variables de Docker Compose
 ├── .editorconfig
 ├── .prettierrc
 ├── .nvmrc
