@@ -1,0 +1,25 @@
+{
+  "name": "openbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Catálogo inteligente de herramientas open source con asistente RAG",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w frontend\" \"npm run dev -w backend\"",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "prettier": "^3.0.0"
+  }
+}
