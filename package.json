@@ -16,7 +16,11 @@
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:psql": "docker compose exec db psql"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
