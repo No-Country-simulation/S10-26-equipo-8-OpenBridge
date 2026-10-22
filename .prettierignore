@@ -7,3 +7,6 @@ build
 package-lock.json
 *.tsbuildinfo
 next-env.d.ts
+
+# Generados por drizzle-kit
+**/drizzle/meta/
