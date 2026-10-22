@@ -20,6 +20,8 @@ Simulación Laboral NoCountry — S10-26, equipo 8.
 
 ## Puesta en marcha
 
+# Prueba
+
 ```bash
 git clone <url-del-repo>
 cd S10-26-equipo-8-OpenBridge
