@@ -58,10 +58,17 @@ describe('migraciones', () => {
         'active_maintainer',
         'health_score',
         'maintenance_level',
-        'category_id',
         'content_hash',
         'last_synced_at',
       ]),
     );
+  });
+
+  it('relacionan repos y categorías de muchos a muchos', async () => {
+    expect(await columnsOf(t, 'repository')).not.toContain('category_id');
+    expect((await columnsOf(t, 'repository_category')).sort()).toEqual([
+      'category_id',
+      'repository_id',
+    ]);
   });
 });

@@ -7,6 +7,7 @@ import {
   integer,
   pgEnum,
   pgTable,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -63,17 +64,32 @@ export const repository = pgTable(
     activeMaintainer: boolean('active_maintainer').notNull().default(false),
     healthScore: smallint('health_score'),
     maintenanceLevel: maintenanceLevel('maintenance_level'),
-    categoryId: uuid('category_id')
-      .notNull()
-      .references(() => category.id, { onDelete: 'restrict' }),
     contentHash: text('content_hash'),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
     check('repository_health_score_range', sql`${t.healthScore} BETWEEN 0 AND 100`),
-    index('repository_category_id_idx').on(t.categoryId),
     index('repository_full_name_idx').on(t.fullName),
+  ],
+);
+
+// Muchos a muchos: una herramienta como Supabase es a la vez Base de Datos
+// y Autenticación, y tiene que aparecer al filtrar por cualquiera de las dos.
+export const repositoryCategory = pgTable(
+  'repository_category',
+  {
+    repositoryId: uuid('repository_id')
+      .notNull()
+      .references(() => repository.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => category.id, { onDelete: 'restrict' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.categoryId] }),
+    // La PK ya sirve para buscar por repo; este índice cubre el filtro por categoría.
+    index('repository_category_category_id_idx').on(t.categoryId),
   ],
 );
 

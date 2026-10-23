@@ -1,5 +1,5 @@
 {
-  "id": "4fbff566-6558-4cc1-8cae-a327bb7d3971",
+  "id": "5967d0b3-3a6f-420c-b178-5230a2f22773",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -190,12 +190,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "category_id": {
-          "name": "category_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "content_hash": {
           "name": "content_hash",
           "type": "text",
@@ -224,21 +218,6 @@
         }
       },
       "indexes": {
-        "repository_category_id_idx": {
-          "name": "repository_category_id_idx",
-          "columns": [
-            {
-              "expression": "category_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "repository_full_name_idx": {
           "name": "repository_full_name_idx",
           "columns": [
@@ -255,21 +234,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "repository_category_id_category_id_fk": {
-          "name": "repository_category_id_category_id_fk",
-          "tableFrom": "repository",
-          "tableTo": "category",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "repository_github_id_unique": {
@@ -287,6 +252,82 @@
           "value": "\"repository\".\"health_score\" BETWEEN 0 AND 100"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.repository_category": {
+      "name": "repository_category",
+      "schema": "",
+      "columns": {
+        "repository_id": {
+          "name": "repository_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "repository_category_category_id_idx": {
+          "name": "repository_category_category_id_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "repository_category_repository_id_repository_id_fk": {
+          "name": "repository_category_repository_id_repository_id_fk",
+          "tableFrom": "repository_category",
+          "tableTo": "repository",
+          "columnsFrom": [
+            "repository_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "repository_category_category_id_category_id_fk": {
+          "name": "repository_category_category_id_category_id_fk",
+          "tableFrom": "repository_category",
+          "tableTo": "category",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "repository_category_repository_id_category_id_pk": {
+          "name": "repository_category_repository_id_category_id_pk",
+          "columns": [
+            "repository_id",
+            "category_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },

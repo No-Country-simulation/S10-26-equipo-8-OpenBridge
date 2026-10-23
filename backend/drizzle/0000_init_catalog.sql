@@ -29,7 +29,6 @@ CREATE TABLE "repository" (
 	"active_maintainer" boolean DEFAULT false NOT NULL,
 	"health_score" smallint,
 	"maintenance_level" "maintenance_level",
-	"category_id" uuid NOT NULL,
 	"content_hash" text,
 	"last_synced_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -38,6 +37,13 @@ CREATE TABLE "repository" (
 	CONSTRAINT "repository_health_score_range" CHECK ("repository"."health_score" BETWEEN 0 AND 100)
 );
 --> statement-breakpoint
-ALTER TABLE "repository" ADD CONSTRAINT "repository_category_id_category_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."category"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "repository_category_id_idx" ON "repository" USING btree ("category_id");--> statement-breakpoint
-CREATE INDEX "repository_full_name_idx" ON "repository" USING btree ("full_name");
+CREATE TABLE "repository_category" (
+	"repository_id" uuid NOT NULL,
+	"category_id" uuid NOT NULL,
+	CONSTRAINT "repository_category_repository_id_category_id_pk" PRIMARY KEY("repository_id","category_id")
+);
+--> statement-breakpoint
+ALTER TABLE "repository_category" ADD CONSTRAINT "repository_category_repository_id_repository_id_fk" FOREIGN KEY ("repository_id") REFERENCES "public"."repository"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repository_category" ADD CONSTRAINT "repository_category_category_id_category_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."category"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "repository_full_name_idx" ON "repository" USING btree ("full_name");--> statement-breakpoint
+CREATE INDEX "repository_category_category_id_idx" ON "repository_category" USING btree ("category_id");
