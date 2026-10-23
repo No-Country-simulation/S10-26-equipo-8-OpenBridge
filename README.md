@@ -80,6 +80,8 @@ Cada workspace también se puede ejecutar solo: `npm run dev -w backend`.
 ├── backend/           # Express + TypeScript
 │   ├── src/           # app.ts (app), server.ts (listen)
 │   └── test/          # Vitest + supertest
+├── docs/              # documentación del proyecto
+│   └── testing/       # estrategia de pruebas y DoD
 ├── docker/postgres/init/  # scripts de inicialización (extensión vector)
 ├── docker-compose.yml # Postgres + pgvector local
 ├── .env.example       # variables de Docker Compose
@@ -88,6 +90,10 @@ Cada workspace también se puede ejecutar solo: `npm run dev -w backend`.
 ├── .nvmrc
 └── package.json       # workspaces + scripts comunes
 ```
+
+## Calidad
+
+La estrategia de pruebas y la Definition of Done están en [`docs/testing/estrategia-de-pruebas.md`](docs/testing/estrategia-de-pruebas.md).
 
 ## Ramas
 
