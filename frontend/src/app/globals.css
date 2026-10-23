@@ -1,26 +1,161 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
+  --radius: 0.5rem;
+
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f5f5f5;
+  --muted-foreground: #5c5c5c;
+  --accent: #f5f5f5;
+  --accent-foreground: #0a0a0a;
+  --accent-link: #2563eb;
+  --destructive: #b91c1c;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #2563eb;
+
+  --cat-auth: #7c3aed;
+  --cat-auth-tint: #f2ebfd;
+  --cat-database: #0f766e;
+  --cat-database-tint: #e7f1f0;
+  --cat-payments: #be185d;
+  --cat-payments-tint: #f8e8ef;
+  --cat-ai: #9a3412;
+  --cat-ai-tint: #f5ebe7;
+  --cat-analytics: #0369a1;
+  --cat-analytics-tint: #e6f0f6;
+  --cat-search: #3f6212;
+  --cat-search-tint: #ecefe7;
+
+  --health-active: #166534;
+  --health-active-tint: #e8f0eb;
+  --health-moderate: #92400e;
+  --health-moderate-tint: #f4ece7;
+  --health-risk: #b91c1c;
+  --health-risk-tint: #f8e8e8;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #141414;
+  --card-foreground: #ededed;
+  --popover: #141414;
+  --popover-foreground: #ededed;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --secondary: #171717;
+  --secondary-foreground: #ededed;
+  --muted: #171717;
+  --muted-foreground: #a1a1a1;
+  --accent: #171717;
+  --accent-foreground: #ededed;
+  --accent-link: #60a5fa;
+  --destructive: #f87171;
+  --border: #262626;
+  --input: #262626;
+  --ring: #60a5fa;
+
+  --cat-auth: #a78bfa;
+  --cat-auth-tint: #201c2c;
+  --cat-database: #2dd4bf;
+  --cat-database-tint: #0f2623;
+  --cat-payments: #f472b6;
+  --cat-payments-tint: #2b1922;
+  --cat-ai: #fb923c;
+  --cat-ai-tint: #2c1d11;
+  --cat-analytics: #38bdf8;
+  --cat-analytics-tint: #10232b;
+  --cat-search: #a3e635;
+  --cat-search-tint: #1f2910;
+
+  --health-active: #4ade80;
+  --health-active-tint: #13281b;
+  --health-moderate: #fbbf24;
+  --health-moderate-tint: #2c230e;
+  --health-risk: #f87171;
+  --health-risk-tint: #2b1818;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-link: var(--accent-link);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cat-auth: var(--cat-auth);
+  --color-cat-auth-tint: var(--cat-auth-tint);
+  --color-cat-database: var(--cat-database);
+  --color-cat-database-tint: var(--cat-database-tint);
+  --color-cat-payments: var(--cat-payments);
+  --color-cat-payments-tint: var(--cat-payments-tint);
+  --color-cat-ai: var(--cat-ai);
+  --color-cat-ai-tint: var(--cat-ai-tint);
+  --color-cat-analytics: var(--cat-analytics);
+  --color-cat-analytics-tint: var(--cat-analytics-tint);
+  --color-cat-search: var(--cat-search);
+  --color-cat-search-tint: var(--cat-search-tint);
+
+  --color-health-active: var(--health-active);
+  --color-health-active-tint: var(--health-active-tint);
+  --color-health-moderate: var(--health-moderate);
+  --color-health-moderate-tint: var(--health-moderate-tint);
+  --color-health-risk: var(--health-risk);
+  --color-health-risk-tint: var(--health-risk-tint);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent-link) 22%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
