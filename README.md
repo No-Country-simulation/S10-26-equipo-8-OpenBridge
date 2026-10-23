@@ -54,6 +54,20 @@ SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';
 - Los datos persisten en el volumen `pgdata`: `npm run db:down` los conserva.
 - Los scripts de `docker/postgres/init/` solo corren con el volumen vacío. Para reiniciar la base desde cero: `docker compose down -v`.
 
+### Esquema y migraciones (Drizzle)
+
+El esquema vive en `backend/src/db/schema.ts` y las migraciones SQL en `backend/drizzle/`, versionadas en el repo.
+
+```bash
+cp backend/.env.example backend/.env   # define DATABASE_URL
+npm run db:migrate -w backend          # aplica las migraciones pendientes
+npm run db:seed -w backend             # carga las categorías base (idempotente)
+```
+
+Para cambiar el esquema: editá `schema.ts`, corré `npm run db:generate -w backend` y subí el SQL generado en el mismo PR. drizzle-kit no genera migraciones de reversa: un cambio se deshace con una migración nueva.
+
+Los tests de base de datos crean una base temporal por archivo y le aplican las migraciones, así que necesitan Postgres levantado (`npm run db:up`).
+
 ## Scripts (desde la raíz)
 
 | Script                 | Qué hace                                                            |
