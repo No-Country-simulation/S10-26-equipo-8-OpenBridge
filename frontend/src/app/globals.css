@@ -26,6 +26,7 @@
   --accent-link: #2563eb;
   --destructive: #b91c1c;
   --border: #e5e5e5;
+  --border-strong: #d4d4d4;
   --input: #e5e5e5;
   --ring: #2563eb;
 
@@ -68,6 +69,7 @@
   --accent-link: #60a5fa;
   --destructive: #f87171;
   --border: #262626;
+  --border-strong: #3a3a3a;
   --input: #262626;
   --ring: #60a5fa;
 
@@ -117,6 +119,7 @@
   --color-link: var(--accent-link);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
