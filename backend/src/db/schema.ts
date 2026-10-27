@@ -11,7 +11,9 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
+  vector,
 } from 'drizzle-orm/pg-core';
 
 export const maintenanceLevel = pgEnum('maintenance_level', [
@@ -93,6 +95,36 @@ export const repositoryCategory = pgTable(
   ],
 );
 
+// Dimensión de nomic-embed-text (Ollama), decisión S3. Cambiar de modelo
+// implica una migración nueva y regenerar todos los embeddings.
+export const EMBEDDING_DIMENSIONS = 768;
+
+export const embeddingEntityType = pgEnum('embedding_entity_type', [
+  'REPOSITORY',
+  'INTEGRATION_IDEA',
+]);
+
+// Un embedding por entidad. entity_id es polimórfico (repository o
+// integration_idea), por eso no tiene FK: quien borra la entidad borra su embedding.
+export const embedding = pgTable(
+  'embedding',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entityType: embeddingEntityType('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    content: text('content').notNull(),
+    vector: vector('vector', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    model: text('model').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('embedding_entity_idx').on(t.entityType, t.entityId),
+    index('embedding_vector_hnsw_idx').using('hnsw', t.vector.op('vector_cosine_ops')),
+  ],
+);
+
 export type Category = typeof category.$inferSelect;
 export type Repository = typeof repository.$inferSelect;
 export type NewRepository = typeof repository.$inferInsert;
+export type Embedding = typeof embedding.$inferSelect;
+export type NewEmbedding = typeof embedding.$inferInsert;
