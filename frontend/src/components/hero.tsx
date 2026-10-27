@@ -1,6 +1,16 @@
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { HeroSearch } from '@/components/hero-search';
 import { getCategories } from '@/lib/categories';
+
+const popularSearches = [
+  'Autenticación con SSO',
+  'Búsqueda full-text',
+  'Pagos recurrentes',
+];
+
+const chipClass =
+  'inline-flex h-8 items-center rounded-full px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40';
 
 const subtitleClass =
   'mt-4 max-w-120 text-base text-muted-foreground md:mt-5 md:text-xl md:leading-[30px]';
@@ -37,6 +47,26 @@ export function Hero() {
         </Suspense>
 
         <HeroSearch />
+
+        <nav
+          aria-label="Búsquedas populares"
+          className="mt-5 flex flex-wrap items-center justify-center gap-2"
+        >
+          <span className="text-[13px] text-muted-foreground">Populares:</span>
+          {popularSearches.map((term, i) => (
+            <Link
+              key={term}
+              href={`/catalogo?q=${encodeURIComponent(term)}`}
+              className={
+                i === 0
+                  ? `${chipClass} bg-primary text-primary-foreground hover:bg-primary/90`
+                  : `${chipClass} border border-border bg-muted text-foreground hover:border-border-strong`
+              }
+            >
+              {term}
+            </Link>
+          ))}
+        </nav>
       </div>
     </section>
   );
