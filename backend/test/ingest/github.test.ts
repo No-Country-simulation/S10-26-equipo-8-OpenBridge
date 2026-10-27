@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { upsertRepository } from '../../src/db/repositories.js';
-import { category, repository } from '../../src/db/schema.js';
-import { fetchRepoBatch, syncRepoBatch } from '../../src/ingest/github.js';
+import { category, repository, repositoryCategory } from '../../src/db/schema.js';
+import { fetchRepos, syncRepos, type RepoRef } from '../../src/ingest/github.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
 
 describe('cliente GraphQL de GitHub', () => {
@@ -56,14 +56,13 @@ describe('cliente GraphQL de GitHub', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const results = await syncRepoBatch(
+    const results = await syncRepos(
       t.db,
       [
         { owner: 'owner"quoted', name: 'absent' },
         { owner: 'zeit', name: 'next.js' },
       ],
-      'test-token',
-      categoryId,
+      { token: 'test-token', categoryIds: [categoryId] },
     );
 
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -84,12 +83,10 @@ describe('cliente GraphQL de GitHub', () => {
         ),
     );
 
-    const [result] = await syncRepoBatch(
-      t.db,
-      [{ owner: 'zeit', name: 'next.js' }],
-      'test-token',
-      categoryId,
-    );
+    const [result] = await syncRepos(t.db, [{ owner: 'zeit', name: 'next.js' }], {
+      token: 'test-token',
+      categoryIds: [categoryId],
+    });
 
     expect(result.status).toBe('ok');
     const [saved] = await t.db.select().from(repository).where(eq(repository.githubId, 42));
@@ -102,13 +99,16 @@ describe('cliente GraphQL de GitHub', () => {
   });
 
   it('actualiza por github_id y refleja el nombre nuevo cuando GitHub redirige un repo', async () => {
-    await upsertRepository(t.db, {
-      githubId: 43,
-      fullName: 'zeit/next.js',
-      name: 'next.js',
-      url: 'https://github.com/zeit/next.js',
-      categoryId,
-    });
+    await upsertRepository(
+      t.db,
+      {
+        githubId: 43,
+        fullName: 'zeit/next.js',
+        name: 'next.js',
+        url: 'https://github.com/zeit/next.js',
+      },
+      [categoryId],
+    );
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -127,17 +127,172 @@ describe('cliente GraphQL de GitHub', () => {
       ),
     );
 
-    const [result] = await syncRepoBatch(
-      t.db,
-      [{ owner: 'zeit', name: 'next.js' }],
-      'test-token',
-      categoryId,
-    );
+    const [result] = await syncRepos(t.db, [{ owner: 'zeit', name: 'next.js' }], {
+      token: 'test-token',
+      categoryIds: [categoryId],
+    });
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') expect(result.renamed).toBe(true);
     const saved = await t.db.select().from(repository).where(eq(repository.githubId, 43));
     expect(saved).toHaveLength(1);
     expect(saved[0].fullName).toBe('vercel/next.js');
+  });
+
+  it('vincula el repo a las categorías recibidas', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: { r0: githubRepo({ databaseId: 44 }) } }), {
+          status: 200,
+        }),
+      ),
+    );
+
+    const [result] = await syncRepos(t.db, [{ owner: 'vercel', name: 'next.js' }], {
+      token: 'test-token',
+      categoryIds: [categoryId],
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    const links = await t.db
+      .select()
+      .from(repositoryCategory)
+      .where(eq(repositoryCategory.repositoryId, result.savedId));
+    expect(links.map((link) => link.categoryId)).toEqual([categoryId]);
+  });
+
+  it('sin categoryIds conserva las categorías que el repo ya tenía', async () => {
+    const existing = await upsertRepository(
+      t.db,
+      { githubId: 45, fullName: 'acme/lib', name: 'lib', url: 'https://github.com/acme/lib' },
+      [categoryId],
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              r0: githubRepo({
+                databaseId: 45,
+                nameWithOwner: 'acme/lib',
+                url: 'https://github.com/acme/lib',
+              }),
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await syncRepos(t.db, [{ owner: 'acme', name: 'lib' }], { token: 'test-token' });
+
+    const links = await t.db
+      .select()
+      .from(repositoryCategory)
+      .where(eq(repositoryCategory.repositoryId, existing.id));
+    expect(links.map((link) => link.categoryId)).toEqual([categoryId]);
+  });
+});
+
+describe('fetchRepos', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  const refs = (count: number): RepoRef[] =>
+    Array.from({ length: count }, (_, index) => ({ owner: 'acme', name: `repo-${index}` }));
+
+  // Responde un repo por cada alias de la query, con un id derivado del nombre pedido.
+  function githubEcho() {
+    return vi.fn(async (_url: string, init: RequestInit) => {
+      const { query } = JSON.parse(String(init.body)) as { query: string };
+      const data: Record<string, unknown> = {};
+      for (const [, alias, name] of query.matchAll(
+        /(r\d+): repository\(owner: "acme", name: "([^"]+)"\)/g,
+      )) {
+        data[alias] = {
+          databaseId: Number(name.replace('repo-', '')),
+          nameWithOwner: `acme/${name}`,
+          url: `https://github.com/acme/${name}`,
+          description: null,
+          homepageUrl: null,
+          primaryLanguage: null,
+          stargazerCount: 0,
+          forkCount: 0,
+          issues: { totalCount: 0 },
+          isArchived: false,
+          repositoryTopics: { nodes: [] },
+          licenseInfo: null,
+          defaultBranchRef: null,
+          latestRelease: null,
+        };
+      }
+      return new Response(JSON.stringify({ data }), { status: 200 });
+    });
+  }
+
+  const aliasCount = (call: unknown[]) =>
+    [...String((call[1] as RequestInit).body).matchAll(/r\d+: repository/g)].length;
+
+  it('parte la lista en lotes de 50 por defecto y respeta el orden', async () => {
+    const fetchMock = githubEcho();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await fetchRepos(refs(120), { token: 'test-token' });
+
+    expect(fetchMock.mock.calls.map(aliasCount)).toEqual([50, 50, 20]);
+    expect(results).toHaveLength(120);
+    expect(results.map(({ request }) => request.name)).toEqual(refs(120).map(({ name }) => name));
+    expect(results.every(({ status }) => status === 'ok')).toBe(true);
+  });
+
+  it('acepta un tamaño de lote configurable', async () => {
+    const fetchMock = githubEcho();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchRepos(refs(100), { token: 'test-token', batchSize: 25 });
+
+    expect(fetchMock.mock.calls.map(aliasCount)).toEqual([25, 25, 25, 25]);
+  });
+
+  it.each([0, -1, 1.5, 101])('rechaza un tamaño de lote inválido (%s)', async (batchSize) => {
+    vi.stubGlobal('fetch', githubEcho());
+
+    await expect(fetchRepos(refs(1), { token: 'test-token', batchSize })).rejects.toThrow(
+      /batchSize/,
+    );
+  });
+
+  it('lee el token de GITHUB_TOKEN cuando no se pasa uno', async () => {
+    vi.stubEnv('GITHUB_TOKEN', 'env-token');
+    const fetchMock = githubEcho();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchRepos(refs(1));
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit & { headers: Record<string, string> };
+    expect(init.headers.Authorization).toBe('Bearer env-token');
+  });
+
+  it('falla sin llamar a GitHub si no hay GITHUB_TOKEN', async () => {
+    vi.stubEnv('GITHUB_TOKEN', '');
+    const fetchMock = githubEcho();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchRepos(refs(1))).rejects.toThrow(/GITHUB_TOKEN/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('no incluye el token en los errores', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })));
+
+    const error = await fetchRepos(refs(1), { token: 'secret-token' }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(String((error as Error).message)).not.toContain('secret-token');
   });
 });

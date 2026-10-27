@@ -40,7 +40,7 @@ export type FetchRepoResult =
       request: RepoRef;
       status: 'ok';
       renamed: boolean;
-      repository: Omit<RepositoryInput, 'categoryId'>;
+      repository: RepositoryInput;
     }
   | { request: RepoRef; status: 'not_found' }
   | { request: RepoRef; status: 'error'; error: string };
@@ -49,7 +49,30 @@ export type SyncRepoResult =
   | (Extract<FetchRepoResult, { status: 'ok' }> & { savedId: string })
   | Exclude<FetchRepoResult, { status: 'ok' }>;
 
+export interface GithubClientOptions {
+  // Si no se pasa, se lee de GITHUB_TOKEN. Nunca se incluye en logs ni errores.
+  token?: string;
+  // Repos por query (uno por alias). GitHub limita el costo de cada query.
+  batchSize?: number;
+}
+
 const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
+const DEFAULT_BATCH_SIZE = 50;
+const MAX_BATCH_SIZE = 100;
+
+function readGithubToken(): string {
+  const token = process.env.GITHUB_TOKEN?.trim();
+  if (!token) throw new Error('Falta la variable de entorno GITHUB_TOKEN');
+  return token;
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    chunks.push(items.slice(start, start + size));
+  }
+  return chunks;
+}
 
 function buildQuery(repos: RepoRef[]): string {
   const fields = repos
@@ -117,7 +140,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function mapRepository(node: GithubRepository): Omit<RepositoryInput, 'categoryId'> {
+function mapRepository(node: GithubRepository): RepositoryInput {
   return {
     githubId: node.databaseId,
     fullName: node.nameWithOwner,
@@ -141,9 +164,7 @@ function mapRepository(node: GithubRepository): Omit<RepositoryInput, 'categoryI
   };
 }
 
-export async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRepoResult[]> {
-  if (repos.length === 0) return [];
-
+async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRepoResult[]> {
   const response = await fetch(GITHUB_GRAPHQL, {
     method: 'POST',
     headers: {
@@ -205,13 +226,32 @@ export async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<F
   });
 }
 
-export async function syncRepoBatch(
+// Trae los repos en lotes secuenciales: una query GraphQL por lote.
+export async function fetchRepos(
+  repos: RepoRef[],
+  { token, batchSize = DEFAULT_BATCH_SIZE }: GithubClientOptions = {},
+): Promise<FetchRepoResult[]> {
+  if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
+    throw new Error(`batchSize debe ser un entero entre 1 y ${MAX_BATCH_SIZE}`);
+  }
+  if (repos.length === 0) return [];
+
+  const resolvedToken = token ?? readGithubToken();
+  const results: FetchRepoResult[] = [];
+  for (const batch of chunk(repos, batchSize)) {
+    results.push(...(await fetchRepoBatch(batch, resolvedToken)));
+  }
+  return results;
+}
+
+// categoryIds reemplaza las categorías de cada repo guardado; si no se pasa,
+// se conservan las que ya tenía (ver upsertRepository).
+export async function syncRepos(
   db: Db,
   repos: RepoRef[],
-  token: string,
-  categoryId: string,
+  { categoryIds, ...options }: GithubClientOptions & { categoryIds?: string[] } = {},
 ): Promise<SyncRepoResult[]> {
-  const fetched = await fetchRepoBatch(repos, token);
+  const fetched = await fetchRepos(repos, options);
   const results: SyncRepoResult[] = [];
 
   for (const result of fetched) {
@@ -221,7 +261,7 @@ export async function syncRepoBatch(
     }
 
     try {
-      const saved = await upsertRepository(db, { ...result.repository, categoryId });
+      const saved = await upsertRepository(db, result.repository, categoryIds);
       results.push({ ...result, savedId: saved.id });
     } catch (error) {
       results.push({ request: result.request, status: 'error', error: errorMessage(error) });
