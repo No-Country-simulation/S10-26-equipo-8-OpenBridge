@@ -51,9 +51,9 @@ export function AssistantPanel() {
   return (
     <section
       aria-labelledby="assistant-title"
-      className="flex flex-col gap-8 rounded-xl border border-border bg-muted p-5 sm:p-8 md:flex-row md:gap-12"
+      className="flex flex-col gap-8 rounded-xl border border-border bg-muted p-5 sm:p-8 lg:flex-row lg:gap-12"
     >
-      <div className="flex flex-col gap-2 md:w-125 md:shrink-0">
+      <div className="flex flex-col gap-2 lg:w-125 lg:shrink-0">
         <h2
           id="assistant-title"
           className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-foreground md:text-[28px] md:leading-9"
