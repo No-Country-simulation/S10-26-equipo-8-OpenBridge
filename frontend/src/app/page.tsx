@@ -3,6 +3,11 @@ import { Suspense } from 'react';
 import { AssistantPanel } from '@/components/assistant-panel';
 import { CategoryCard } from '@/components/category-card';
 import { CategoryGrid, CategoryGridSkeleton } from '@/components/category-grid';
+import {
+  FeaturedTools,
+  FeaturedToolsHeader,
+  FeaturedToolsSkeleton,
+} from '@/components/featured-tools';
 import { Hero } from '@/components/hero';
 import { getCategories } from '@/lib/categories';
 
@@ -37,6 +42,13 @@ export default function Home() {
         <Suspense fallback={<CategoryGridSkeleton />}>
           <CategoryList />
         </Suspense>
+
+        <div className="mt-10 sm:mt-12">
+          <FeaturedToolsHeader />
+          <Suspense fallback={<FeaturedToolsSkeleton />}>
+            <FeaturedTools />
+          </Suspense>
+        </div>
       </div>
     </main>
   );
