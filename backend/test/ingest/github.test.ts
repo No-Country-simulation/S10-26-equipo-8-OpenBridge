@@ -36,10 +36,23 @@ describe('cliente GraphQL de GitHub', () => {
     stargazerCount: 100000,
     forkCount: 20000,
     issues: { totalCount: 500 },
+    closedIssues: { totalCount: 1000 },
+    mentionableUsers: { nodes: [{ login: 'vercel' }, { login: 'org-maintainer' }] },
     isArchived: false,
     repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
     licenseInfo: { spdxId: 'MIT' },
-    defaultBranchRef: { target: { committedDate: '2026-10-25T10:00:00Z' } },
+    defaultBranchRef: {
+      target: {
+        committedDate: '2026-10-25T10:00:00Z',
+        history: {
+          totalCount: 2,
+          nodes: [
+            { author: { user: { login: 'vercel' } } },
+            { author: { user: { login: 'contributor' } } },
+          ],
+        },
+      },
+    },
     latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
     ...overrides,
   });
@@ -95,6 +108,9 @@ describe('cliente GraphQL de GitHub', () => {
       licenseSpdx: 'MIT',
       lastCommitAt: new Date('2026-10-25T10:00:00Z'),
       lastReleaseAt: new Date('2026-10-20T10:00:00Z'),
+      healthScore: expect.any(Number),
+      maintenanceLevel: 'ACTIVE',
+      activeMaintainer: true,
     });
   });
 
@@ -224,6 +240,8 @@ describe('fetchRepos', () => {
           stargazerCount: 0,
           forkCount: 0,
           issues: { totalCount: 0 },
+          closedIssues: { totalCount: 0 },
+          mentionableUsers: { nodes: [] },
           isArchived: false,
           repositoryTopics: { nodes: [] },
           licenseInfo: null,
@@ -257,6 +275,52 @@ describe('fetchRepos', () => {
     await fetchRepos(refs(100), { token: 'test-token', batchSize: 25 });
 
     expect(fetchMock.mock.calls.map(aliasCount)).toEqual([25, 25, 25, 25]);
+  });
+
+  it('detecta commits recientes de una persona mencionable en repos de organizaciones', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            r0: {
+              databaseId: 46,
+              nameWithOwner: 'acme/tool',
+              url: 'https://github.com/acme/tool',
+              description: null,
+              homepageUrl: null,
+              primaryLanguage: null,
+              stargazerCount: 0,
+              forkCount: 0,
+              issues: { totalCount: 0 },
+              closedIssues: { totalCount: 0 },
+              mentionableUsers: { nodes: [{ login: 'maintainer' }] },
+              isArchived: false,
+              repositoryTopics: { nodes: [] },
+              licenseInfo: null,
+              defaultBranchRef: {
+                target: {
+                  committedDate: '2026-10-25T10:00:00Z',
+                  history: {
+                    totalCount: 1,
+                    nodes: [{ author: { user: { login: 'maintainer' } } }],
+                  },
+                },
+              },
+              latestRelease: null,
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos([{ owner: 'acme', name: 'tool' }], {
+      token: 'test-token',
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.repository.activeMaintainer).toBe(true);
   });
 
   it.each([0, -1, 1.5, 101])('rechaza un tamaño de lote inválido (%s)', async (batchSize) => {

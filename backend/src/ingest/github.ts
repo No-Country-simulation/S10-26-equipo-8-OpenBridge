@@ -1,5 +1,6 @@
 import type { Db } from '../db/client.js';
 import { upsertRepository, type RepositoryInput } from '../db/repositories.js';
+import { calculateHealthScore, getRecentCommitCutoff } from './health.js';
 
 export interface RepoRef {
   owner: string;
@@ -23,10 +24,20 @@ interface GithubRepository {
   stargazerCount: number;
   forkCount: number;
   issues: { totalCount: number };
+  closedIssues: { totalCount: number };
+  mentionableUsers: { nodes: Array<{ login: string }> };
   isArchived: boolean;
   repositoryTopics: { nodes: Array<{ topic: { name: string } }> };
   licenseInfo: { spdxId: string | null } | null;
-  defaultBranchRef: { target: { committedDate: string } | null } | null;
+  defaultBranchRef: {
+    target: {
+      committedDate: string;
+      history: {
+        totalCount: number;
+        nodes: Array<{ author: { user: { login: string } | null } | null }>;
+      };
+    } | null;
+  } | null;
   latestRelease: { publishedAt: string } | null;
 }
 
@@ -74,7 +85,8 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-function buildQuery(repos: RepoRef[]): string {
+function buildQuery(repos: RepoRef[], now: Date): string {
+  const since = JSON.stringify(getRecentCommitCutoff(now).toISOString());
   const fields = repos
     .map(
       (repo, index) => `
@@ -88,10 +100,22 @@ function buildQuery(repos: RepoRef[]): string {
     stargazerCount
     forkCount
     issues(states: OPEN) { totalCount }
+    closedIssues: issues(states: CLOSED) { totalCount }
+    mentionableUsers(first: 100) { nodes { login } }
     isArchived
     repositoryTopics(first: 100) { nodes { topic { name } } }
     licenseInfo { spdxId }
-    defaultBranchRef { target { ... on Commit { committedDate } } }
+    defaultBranchRef {
+      target {
+        ... on Commit {
+          committedDate
+          history(since: ${since}, first: 100) {
+            totalCount
+            nodes { author { user { login } } }
+          }
+        }
+      }
+    }
     latestRelease { publishedAt }
   }`,
     )
@@ -118,6 +142,13 @@ function isGithubRepository(value: unknown): value is GithubRepository {
     typeof value.forkCount === 'number' &&
     isRecord(value.issues) &&
     typeof value.issues.totalCount === 'number' &&
+    isRecord(value.closedIssues) &&
+    typeof value.closedIssues.totalCount === 'number' &&
+    isRecord(value.mentionableUsers) &&
+    Array.isArray(value.mentionableUsers.nodes) &&
+    value.mentionableUsers.nodes.every(
+      (user) => isRecord(user) && typeof user.login === 'string',
+    ) &&
     typeof value.isArchived === 'boolean' &&
     isRecord(value.repositoryTopics) &&
     Array.isArray(value.repositoryTopics.nodes)
@@ -140,7 +171,43 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function mapRepository(node: GithubRepository): RepositoryInput {
+function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
+  const recentCommits = node.defaultBranchRef?.target?.history;
+  const lastCommitAt = node.defaultBranchRef?.target?.committedDate
+    ? new Date(node.defaultBranchRef.target.committedDate)
+    : null;
+  const lastReleaseAt = node.latestRelease?.publishedAt
+    ? new Date(node.latestRelease.publishedAt)
+    : null;
+  const activeContributorLogins = new Set(
+    (recentCommits?.nodes ?? [])
+      .map((commit) => commit.author?.user?.login)
+      .filter((login): login is string => typeof login === 'string'),
+  );
+  const owner = node.nameWithOwner.slice(0, node.nameWithOwner.indexOf('/'));
+  const archived = node.isArchived;
+  const mentionableLogins = new Set(
+    node.mentionableUsers.nodes.map(({ login }) => login.toLowerCase()),
+  );
+  const hasMaintainerCommitInPast90Days = [...activeContributorLogins].some(
+    (login) =>
+      login.toLowerCase() === owner.toLowerCase() || mentionableLogins.has(login.toLowerCase()),
+  );
+  const { healthScore, maintenanceLevel, activeMaintainer } = calculateHealthScore(
+    {
+      lastCommitAt,
+      recentCommitCount: recentCommits?.totalCount ?? 0,
+      openIssues: node.issues.totalCount,
+      closedIssues: node.closedIssues.totalCount,
+      stars: node.stargazerCount,
+      lastReleaseAt,
+      activeContributors: activeContributorLogins.size,
+      archived,
+      hasMaintainerCommitInPast90Days,
+    },
+    now,
+  );
+
   return {
     githubId: node.databaseId,
     fullName: node.nameWithOwner,
@@ -153,25 +220,25 @@ function mapRepository(node: GithubRepository): RepositoryInput {
     stars: node.stargazerCount,
     forks: node.forkCount,
     openIssues: node.issues.totalCount,
-    lastCommitAt: node.defaultBranchRef?.target?.committedDate
-      ? new Date(node.defaultBranchRef.target.committedDate)
-      : null,
-    lastReleaseAt: node.latestRelease?.publishedAt
-      ? new Date(node.latestRelease.publishedAt)
-      : null,
-    archived: node.isArchived,
+    lastCommitAt,
+    lastReleaseAt,
+    archived,
     topics: node.repositoryTopics.nodes.map(({ topic }) => topic.name),
+    activeMaintainer,
+    healthScore,
+    maintenanceLevel,
   };
 }
 
 async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRepoResult[]> {
+  const now = new Date();
   const response = await fetch(GITHUB_GRAPHQL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ query: buildQuery(repos) }),
+    body: JSON.stringify({ query: buildQuery(repos, now) }),
   });
   if (!response.ok) throw new Error(`GitHub respondió ${response.status}`);
 
@@ -221,7 +288,7 @@ async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRep
       request,
       status: 'ok',
       renamed: node.nameWithOwner.toLowerCase() !== requestedName.toLowerCase(),
-      repository: mapRepository(node),
+      repository: mapRepository(node, now),
     };
   });
 }
