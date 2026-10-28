@@ -36,10 +36,22 @@ describe('cliente GraphQL de GitHub', () => {
     stargazerCount: 100000,
     forkCount: 20000,
     issues: { totalCount: 500 },
+    closedIssues: { totalCount: 1000 },
     isArchived: false,
     repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
     licenseInfo: { spdxId: 'MIT' },
-    defaultBranchRef: { target: { committedDate: '2026-10-25T10:00:00Z' } },
+    defaultBranchRef: {
+      target: {
+        committedDate: '2026-10-25T10:00:00Z',
+        history: {
+          totalCount: 2,
+          nodes: [
+            { author: { user: { login: 'vercel' } } },
+            { author: { user: { login: 'contributor' } } },
+          ],
+        },
+      },
+    },
     latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
     ...overrides,
   });
@@ -98,6 +110,9 @@ describe('cliente GraphQL de GitHub', () => {
       licenseSpdx: 'MIT',
       lastCommitAt: new Date('2026-10-25T10:00:00Z'),
       lastReleaseAt: new Date('2026-10-20T10:00:00Z'),
+      healthScore: expect.any(Number),
+      maintenanceLevel: 'ACTIVE',
+      activeMaintainer: true,
     });
   });
 
