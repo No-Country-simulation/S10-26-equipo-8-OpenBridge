@@ -9,7 +9,7 @@ Simulación Laboral NoCountry — S10-26, equipo 8.
 - **Frontend:** Next.js + React + Tailwind CSS
 - **Backend:** Node.js + Express (TypeScript), Zod
 - **Datos:** PostgreSQL + pgvector, Drizzle ORM (Docker en local, Neon en producción)
-- **IA:** LangChain.js + OpenAI
+- **IA:** LangChain.js + Ollama (`qwen2.5:7b` para generación, `nomic-embed-text` para embeddings)
 - **Ingesta:** GitHub GraphQL API + GitHub Actions (cron diario)
 
 ## Requisitos
