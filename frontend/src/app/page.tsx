@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { AssistantPanel } from '@/components/assistant-panel';
 import { CategoryCard } from '@/components/category-card';
 import { CategoryGrid, CategoryGridSkeleton } from '@/components/category-grid';
 import { Hero } from '@/components/hero';
@@ -22,6 +23,10 @@ export default function Home() {
     <main className="flex-1">
       <Hero />
       <div className="mx-auto w-full max-w-300 px-4 py-8 sm:px-8 sm:py-12">
+        <div className="mb-10 sm:mb-12">
+          <AssistantPanel />
+        </div>
+
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Categorías</h2>
           <Link href="/catalogo" className="text-sm font-medium text-link">
