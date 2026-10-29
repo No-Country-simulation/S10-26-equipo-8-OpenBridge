@@ -13,15 +13,6 @@ El sistema evalúa el estado y la vitalidad de cada repositorio utilizando una f
 | **Recencia de Releases (12 meses)** | 10 | Puntaje completo si existe al menos una publicación en el período. |
 | **Colaboradores activos (90 días)** | 10 | Puntaje completo al detectar 5 o más autores distintos. |
 
-### 🧮 Fórmula de Cálculo
-
-El puntaje final se calcula mediante una suma ponderada normalizada y se redondea al entero más cercano:
-
-$$\text{puntaje} = \text{round}\left(100 \times \frac{\sum(\text{peso} \times \text{señal\_normalizada})}{\sum(\text{pesos})}\right)$$
-
-⚠️ **Regla de Inactividad Crítica:** Si el último commit del repositorio tiene una antigüedad **mayor a 365 días**, el puntaje total se limita automáticamente a un **tope máximo de 39**, independientemente del resultado de las demás señales.
-
----
 
 ### 🏷️ Niveles de Mantenimiento
 
