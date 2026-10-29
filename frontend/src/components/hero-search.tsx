@@ -19,7 +19,7 @@ function isTyping(target: EventTarget | null) {
   );
 }
 
-export function HeroSearch() {
+export function HeroSearch({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -111,7 +111,7 @@ export function HeroSearch() {
       <form
         action="/catalogo"
         role="search"
-        className="flex h-12 w-full items-center gap-3 rounded-[10px] border border-border-strong bg-background px-4 shadow-xs focus-within:border-foreground/40 md:h-15"
+        className="dark flex h-12 w-full items-center gap-3 rounded-[10px] border border-border-strong bg-background px-4 shadow-xs focus-within:border-foreground/40 md:h-15"
       >
         <Search
           className="size-5 shrink-0 text-muted-foreground"
@@ -157,6 +157,8 @@ export function HeroSearch() {
           /
         </kbd>
       </form>
+
+      {children}
 
       {showPanel && (
         <SearchResults

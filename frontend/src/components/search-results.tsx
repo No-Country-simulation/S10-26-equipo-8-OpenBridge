@@ -19,7 +19,7 @@ type Props = {
 };
 
 const panel =
-  'absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-border-strong bg-card text-left shadow-lg';
+  'absolute inset-x-0 top-full z-20 mt-3 overflow-hidden md:mt-6 lg:-inset-x-10 rounded-lg border border-border-strong bg-card text-left shadow-lg';
 
 const message = 'px-4 py-6 text-center text-sm text-muted-foreground';
 
@@ -94,7 +94,7 @@ export function SearchResults({
                     href={`/repositorios/${repository.id}`}
                     onClick={onNavigate}
                     tabIndex={-1}
-                    className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted sm:flex-row sm:items-center sm:gap-4"
+                    className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-muted sm:flex-row sm:py-[9px] sm:items-center sm:gap-4"
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="flex items-center gap-2 text-[13px]">
@@ -132,7 +132,7 @@ export function SearchResults({
             })}
           </ul>
 
-          <div className={`${edge} h-10 border-t border-border`}>
+          <div className={`${edge} h-10 border-t border-border bg-muted`}>
             <Link
               href={catalogHref}
               onClick={onNavigate}
