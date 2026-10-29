@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -95,6 +96,65 @@ export const repositoryCategory = pgTable(
   ],
 );
 
+export const integrationType = pgEnum('integration_type', [
+  'REST_API',
+  'DOCKER',
+  'SDK',
+  'WEBHOOK',
+  'CLI',
+]);
+export const ideaDifficulty = pgEnum('idea_difficulty', ['LOW', 'MEDIUM', 'HIGH']);
+export const ideaStatus = pgEnum('idea_status', ['DRAFT', 'APPROVED', 'REJECTED']);
+export const ideaSource = pgEnum('idea_source', ['LLM', 'HUMAN']);
+
+export type IdeaTrigger = { event: string; description: string };
+export type IdeaSnippet = { language: string; code: string };
+
+// Guía técnica de cómo integrar un repo. La validación completa vive en
+// src/ideas/schema.ts (Zod); los CHECK repiten las reglas que no pueden
+// romperse aunque alguien escriba directo en la base.
+export const integrationIdea = pgTable(
+  'integration_idea',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repositoryId: uuid('repository_id')
+      .notNull()
+      .references(() => repository.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    integrationType: integrationType('integration_type').notNull(),
+    triggers: jsonb('triggers')
+      .$type<IdeaTrigger[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    snippet: jsonb('snippet').$type<IdeaSnippet>(),
+    stackCompatibility: text('stack_compatibility')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    difficulty: ideaDifficulty('difficulty').notNull(),
+    // Sin FK: Postgres no valida arrays contra otra tabla.
+    connectsWith: uuid('connects_with')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    status: ideaStatus('status').notNull().default('DRAFT'),
+    source: ideaSource('source').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    check(
+      'integration_idea_webhook_triggers',
+      sql`${t.integrationType} <> 'WEBHOOK' OR jsonb_array_length(${t.triggers}) > 0`,
+    ),
+    check(
+      'integration_idea_snippet_language',
+      sql`${t.snippet} IS NULL OR coalesce(trim(${t.snippet}->>'language'), '') <> ''`,
+    ),
+    index('integration_idea_repository_id_idx').on(t.repositoryId),
+  ],
+);
+
 // Dimensión de nomic-embed-text (Ollama), decisión S3. Cambiar de modelo
 // implica una migración nueva y regenerar todos los embeddings.
 export const EMBEDDING_DIMENSIONS = 768;
@@ -126,5 +186,7 @@ export const embedding = pgTable(
 export type Category = typeof category.$inferSelect;
 export type Repository = typeof repository.$inferSelect;
 export type NewRepository = typeof repository.$inferInsert;
+export type IntegrationIdea = typeof integrationIdea.$inferSelect;
+export type NewIntegrationIdea = typeof integrationIdea.$inferInsert;
 export type Embedding = typeof embedding.$inferSelect;
 export type NewEmbedding = typeof embedding.$inferInsert;

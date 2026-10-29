@@ -15,6 +15,13 @@
       "when": 1793132290228,
       "tag": "0001_add_embedding",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793215058791,
+      "tag": "0002_add_integration_idea",
+      "breakpoints": true
     }
   ]
 }
