@@ -1,4 +1,4 @@
-import { CategoryCardSkeleton } from '@/components/category-card';
+import { CategoryCardSkeleton } from '@/components/home/category-card';
 
 // Contenedor compartido: lista con borde en mobile, grilla de tarjetas desde md.
 export function CategoryGrid({ children }: { children: React.ReactNode }) {

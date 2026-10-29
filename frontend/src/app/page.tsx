@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { AssistantPanel } from '@/components/assistant-panel';
-import { CategoryCard } from '@/components/category-card';
-import { CategoryGrid, CategoryGridSkeleton } from '@/components/category-grid';
+import { AssistantPanel } from '@/components/home/assistant-panel';
+import { CategoryCard } from '@/components/home/category-card';
+import { CategoryGrid, CategoryGridSkeleton } from '@/components/home/category-grid';
 import {
   FeaturedTools,
   FeaturedToolsHeader,
   FeaturedToolsSkeleton,
-} from '@/components/featured-tools';
-import { Hero } from '@/components/hero';
+} from '@/components/home/featured-tools';
+import { Hero } from '@/components/home/hero';
 import { getCategories } from '@/lib/categories';
 
 async function CategoryList() {

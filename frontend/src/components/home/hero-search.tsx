@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X } from 'lucide-react';
-import { SearchResults, type SearchStatus } from '@/components/search-results';
+import { SearchResults, type SearchStatus } from '@/components/home/search-results';
 import { searchRepositories, type Repository } from '@/lib/repositories';
 
 // Historia OB-21: resultados con 2 o más caracteres, tras 300 ms sin teclear.
