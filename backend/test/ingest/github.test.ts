@@ -5,6 +5,44 @@ import { category, repository, repositoryCategory } from '../../src/db/schema.js
 import { fetchRepos, syncRepos, type RepoRef } from '../../src/ingest/github.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
 
+const githubRepo = (overrides: Record<string, unknown> = {}) => ({
+  databaseId: 42,
+  nameWithOwner: 'vercel/next.js',
+  url: 'https://github.com/vercel/next.js',
+  description: 'The React framework',
+  homepageUrl: 'https://nextjs.org',
+  primaryLanguage: { name: 'JavaScript' },
+  stargazerCount: 100000,
+  forkCount: 20000,
+  issues: { totalCount: 500 },
+  closedIssues: { totalCount: 1000 },
+  pullRequests: {
+    nodes: [
+      {
+        mergedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        mergedBy: { login: 'org-maintainer' },
+      },
+    ],
+  },
+  isArchived: false,
+  repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
+  licenseInfo: { spdxId: 'MIT' },
+  defaultBranchRef: {
+    target: {
+      committedDate: '2026-10-25T10:00:00Z',
+      history: {
+        totalCount: 2,
+        nodes: [
+          { author: { user: { login: 'vercel' } } },
+          { author: { user: { login: 'contributor' } } },
+        ],
+      },
+    },
+  },
+  latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
+  ...overrides,
+});
+
 describe('cliente GraphQL de GitHub', () => {
   let t: TestDb;
   let categoryId: string;
@@ -24,37 +62,6 @@ describe('cliente GraphQL de GitHub', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-  });
-
-  const githubRepo = (overrides: Record<string, unknown> = {}) => ({
-    databaseId: 42,
-    nameWithOwner: 'vercel/next.js',
-    url: 'https://github.com/vercel/next.js',
-    description: 'The React framework',
-    homepageUrl: 'https://nextjs.org',
-    primaryLanguage: { name: 'JavaScript' },
-    stargazerCount: 100000,
-    forkCount: 20000,
-    issues: { totalCount: 500 },
-    closedIssues: { totalCount: 1000 },
-    mentionableUsers: { nodes: [{ login: 'vercel' }, { login: 'org-maintainer' }] },
-    isArchived: false,
-    repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
-    licenseInfo: { spdxId: 'MIT' },
-    defaultBranchRef: {
-      target: {
-        committedDate: '2026-10-25T10:00:00Z',
-        history: {
-          totalCount: 2,
-          nodes: [
-            { author: { user: { login: 'vercel' } } },
-            { author: { user: { login: 'contributor' } } },
-          ],
-        },
-      },
-    },
-    latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
-    ...overrides,
   });
 
   it('usa el endpoint GraphQL y deja continuar el lote ante errores por alias', async () => {
@@ -83,6 +90,10 @@ describe('cliente GraphQL de GitHub', () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.query).toContain('repository(owner: "owner\\"quoted", name: "absent")');
+    expect(body.query).toContain(
+      'pullRequests(states: MERGED, last: 20) { nodes { mergedAt mergedBy { login } } }',
+    );
+    expect(body.query).not.toContain('mentionableUsers');
     expect(results.map(({ status }) => status)).toEqual(['not_found', 'ok']);
   });
 
@@ -241,7 +252,7 @@ describe('fetchRepos', () => {
           forkCount: 0,
           issues: { totalCount: 0 },
           closedIssues: { totalCount: 0 },
-          mentionableUsers: { nodes: [] },
+          pullRequests: { nodes: [] },
           isArchived: false,
           repositoryTopics: { nodes: [] },
           licenseInfo: null,
@@ -277,7 +288,7 @@ describe('fetchRepos', () => {
     expect(fetchMock.mock.calls.map(aliasCount)).toEqual([25, 25, 25, 25]);
   });
 
-  it('detecta commits recientes de una persona mencionable en repos de organizaciones', async () => {
+  it('detecta un merge reciente de un mantenedor en un repo de organización', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -293,7 +304,14 @@ describe('fetchRepos', () => {
               forkCount: 0,
               issues: { totalCount: 0 },
               closedIssues: { totalCount: 0 },
-              mentionableUsers: { nodes: [{ login: 'maintainer' }] },
+              pullRequests: {
+                nodes: [
+                  {
+                    mergedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                    mergedBy: { login: 'maintainer' },
+                  },
+                ],
+              },
               isArchived: false,
               repositoryTopics: { nodes: [] },
               licenseInfo: null,
@@ -321,6 +339,45 @@ describe('fetchRepos', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') expect(result.repository.activeMaintainer).toBe(true);
+  });
+
+  it('no considera mantenedor activo a quien solo tiene commits recientes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            r0: githubRepo({
+              pullRequests: {
+                nodes: [
+                  {
+                    mergedAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+                    mergedBy: { login: 'maintainer' },
+                  },
+                ],
+              },
+              defaultBranchRef: {
+                target: {
+                  committedDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                  history: {
+                    totalCount: 1,
+                    nodes: [{ author: { user: { login: 'contributor' } } }],
+                  },
+                },
+              },
+            }),
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos([{ owner: 'acme', name: 'tool' }], {
+      token: 'test-token',
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.repository.activeMaintainer).toBe(false);
   });
 
   it.each([0, -1, 1.5, 101])('rechaza un tamaño de lote inválido (%s)', async (batchSize) => {

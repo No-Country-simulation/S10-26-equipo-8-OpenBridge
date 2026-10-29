@@ -25,7 +25,9 @@ interface GithubRepository {
   forkCount: number;
   issues: { totalCount: number };
   closedIssues: { totalCount: number };
-  mentionableUsers: { nodes: Array<{ login: string }> };
+  pullRequests: {
+    nodes: Array<{ mergedAt: string; mergedBy: { login: string } | null }>;
+  };
   isArchived: boolean;
   repositoryTopics: { nodes: Array<{ topic: { name: string } }> };
   licenseInfo: { spdxId: string | null } | null;
@@ -101,7 +103,7 @@ function buildQuery(repos: RepoRef[], now: Date): string {
     forkCount
     issues(states: OPEN) { totalCount }
     closedIssues: issues(states: CLOSED) { totalCount }
-    mentionableUsers(first: 100) { nodes { login } }
+    pullRequests(states: MERGED, last: 20) { nodes { mergedAt mergedBy { login } } }
     isArchived
     repositoryTopics(first: 100) { nodes { topic { name } } }
     licenseInfo { spdxId }
@@ -144,10 +146,14 @@ function isGithubRepository(value: unknown): value is GithubRepository {
     typeof value.issues.totalCount === 'number' &&
     isRecord(value.closedIssues) &&
     typeof value.closedIssues.totalCount === 'number' &&
-    isRecord(value.mentionableUsers) &&
-    Array.isArray(value.mentionableUsers.nodes) &&
-    value.mentionableUsers.nodes.every(
-      (user) => isRecord(user) && typeof user.login === 'string',
+    isRecord(value.pullRequests) &&
+    Array.isArray(value.pullRequests.nodes) &&
+    value.pullRequests.nodes.every(
+      (pullRequest) =>
+        isRecord(pullRequest) &&
+        typeof pullRequest.mergedAt === 'string' &&
+        (pullRequest.mergedBy === null ||
+          (isRecord(pullRequest.mergedBy) && typeof pullRequest.mergedBy.login === 'string')),
     ) &&
     typeof value.isArchived === 'boolean' &&
     isRecord(value.repositoryTopics) &&
@@ -179,19 +185,17 @@ function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
   const lastReleaseAt = node.latestRelease?.publishedAt
     ? new Date(node.latestRelease.publishedAt)
     : null;
+  const archived = node.isArchived;
+  const nowMs = now.getTime();
+  const maintainerCutoffMs = getRecentCommitCutoff(now).getTime();
+  const hasMaintainerMergeInPast90Days = node.pullRequests.nodes.some(({ mergedAt }) => {
+    const mergedAtMs = Date.parse(mergedAt);
+    return Number.isFinite(mergedAtMs) && mergedAtMs >= maintainerCutoffMs && mergedAtMs <= nowMs;
+  });
   const activeContributorLogins = new Set(
     (recentCommits?.nodes ?? [])
       .map((commit) => commit.author?.user?.login)
       .filter((login): login is string => typeof login === 'string'),
-  );
-  const owner = node.nameWithOwner.slice(0, node.nameWithOwner.indexOf('/'));
-  const archived = node.isArchived;
-  const mentionableLogins = new Set(
-    node.mentionableUsers.nodes.map(({ login }) => login.toLowerCase()),
-  );
-  const hasMaintainerCommitInPast90Days = [...activeContributorLogins].some(
-    (login) =>
-      login.toLowerCase() === owner.toLowerCase() || mentionableLogins.has(login.toLowerCase()),
   );
   const { healthScore, maintenanceLevel, activeMaintainer } = calculateHealthScore(
     {
@@ -203,7 +207,7 @@ function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
       lastReleaseAt,
       activeContributors: activeContributorLogins.size,
       archived,
-      hasMaintainerCommitInPast90Days,
+      hasMaintainerMergeInPast90Days,
     },
     now,
   );

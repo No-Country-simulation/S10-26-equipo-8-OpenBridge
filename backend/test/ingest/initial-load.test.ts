@@ -28,7 +28,10 @@ describe('carga inicial del inventario', () => {
       categories: ['auth'],
     });
     expect(
-      repositories.find(({ owner, name }) => owner === 'clickhouse' && name === 'clickhouse'),
+      repositories.find(
+        ({ owner, name }) =>
+          owner.toLowerCase() === 'clickhouse' && name.toLowerCase() === 'clickhouse',
+      ),
     ).toMatchObject({ categories: ['database', 'analytics'] });
   });
 
@@ -37,36 +40,39 @@ describe('carga inicial del inventario', () => {
       /Identificador inválido/,
     );
     const repositories = parseInitialInventory(
-      'repositories:\n  - repo: acme/tool\n    category: database\n  - repo: ACME/TOOL\n    category: analytics\n',
+      'repositories:\n  - repo: acme/tool\n    categories: [database]\n  - repo: ACME/TOOL\n    categories: [analytics]\n',
     );
     expect(repositories).toEqual([
       { owner: 'acme', name: 'tool', categories: ['database', 'analytics'] },
     ]);
   });
 
-  it('continúa después de un lote fallido e informa cada repositorio que no cargó', async () => {
+  it('divide lotes fallidos y reporta solo los repositorios que siguen fallando', async () => {
     const repositories = [
       fixture('acme', 'one'),
       fixture('acme', 'two'),
       fixture('acme', 'three'),
       fixture('acme', 'four'),
     ];
-    const fetchBatch = vi
-      .fn()
-      .mockRejectedValueOnce(new Error('GitHub no disponible'))
-      .mockResolvedValueOnce(
-        repositories.slice(2).map((repository): FetchRepoResult => ({
-          request: repository,
-          status: 'ok',
-          renamed: false,
-          repository: {
-            githubId: 3,
-            fullName: 'acme/three',
-            name: 'three',
-            url: 'https://github.com/acme/three',
-          },
-        })),
-      );
+    const fetchBatch = vi.fn(async (batch: RepoRef[]) => {
+      if (batch.length > 1 && batch[0].name === 'one') {
+        throw new Error('GitHub respondió 504');
+      }
+      if (batch.length === 1 && batch[0].name === 'one') {
+        throw new Error('GitHub respondió 504');
+      }
+      return batch.map((repository): FetchRepoResult => ({
+        request: repository,
+        status: 'ok',
+        renamed: false,
+        repository: {
+          githubId: repositories.indexOf(repository) + 1,
+          fullName: `${repository.owner}/${repository.name}`,
+          name: repository.name,
+          url: `https://github.com/${repository.owner}/${repository.name}`,
+        },
+      }));
+    });
     const persistRepository = vi.fn().mockResolvedValue(undefined);
 
     const report = await loadInitialInventory(
@@ -79,16 +85,16 @@ describe('carga inicial del inventario', () => {
       2,
     );
 
-    expect(fetchBatch).toHaveBeenCalledTimes(2);
-    expect(persistRepository).toHaveBeenCalledTimes(2);
+    expect(fetchBatch).toHaveBeenCalledTimes(4);
+    expect(persistRepository).toHaveBeenCalledTimes(3);
     expect(report).toMatchObject({
       attempted: 4,
-      loaded: 2,
-      failed: 2,
-      successRatePercent: 50,
+      loaded: 3,
+      failed: 1,
+      successRatePercent: 75,
       targetMet: false,
     });
-    expect(report.failures.map(({ repo }) => repo)).toEqual(['acme/one', 'acme/two']);
+    expect(report.failures.map(({ repo }) => repo)).toEqual(['acme/one']);
   });
 
   it('alcanza el umbral requerido cuando carga exactamente el 98 %', async () => {
