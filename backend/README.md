@@ -60,8 +60,4 @@ npm run db:migrate -w backend
 npm run db:load-initial -w backend
 ```
 
-El comando realiza hasta 50 consultas por lote. Si GitHub rechaza un lote, lo
-divide y reintenta en grupos menores; los repositorios que sigan fallando quedan
-en `backend/reports/initial-load-report.json`. Termina con error si no se carga
-al menos el 98 % del inventario; el informe también se genera si no se alcanza
-ese umbral.
+
