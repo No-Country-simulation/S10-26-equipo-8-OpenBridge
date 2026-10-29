@@ -43,7 +43,7 @@ export interface HealthScoreInput {
   lastReleaseAt: Date | null;
   activeContributors: number;
   archived: boolean;
-  hasMaintainerCommitInPast90Days: boolean;
+  hasMaintainerMergeInPast90Days: boolean;
 }
 
 export interface HealthScoreResult {
@@ -128,7 +128,7 @@ export function calculateHealthScore(
   return {
     healthScore,
     maintenanceLevel: getMaintenanceLevel(healthScore, input.archived, input.lastCommitAt, now),
-    activeMaintainer: input.hasMaintainerCommitInPast90Days,
+    activeMaintainer: input.hasMaintainerMergeInPast90Days,
   };
 }
 

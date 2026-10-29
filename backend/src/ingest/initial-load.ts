@@ -55,8 +55,16 @@ export function parseInitialInventory(source: string): InitialRepository[] {
 
   const repositories = new Map<string, InitialRepository>();
   document.repositories.forEach((entry, index) => {
-    if (!isRecord(entry) || typeof entry.repo !== 'string' || typeof entry.category !== 'string') {
-      throw new Error(`El repositorio en la posición ${index + 1} debe incluir repo y category`);
+    if (!isRecord(entry) || typeof entry.repo !== 'string') {
+      throw new Error(`El repositorio en la posición ${index + 1} debe incluir repo y categories`);
+    }
+
+    const rawCategories = Array.isArray(entry.categories) ? entry.categories : [entry.category];
+    if (
+      rawCategories.length === 0 ||
+      !rawCategories.every((category) => typeof category === 'string' && category.trim())
+    ) {
+      throw new Error(`El repositorio en la posición ${index + 1} debe incluir categorías válidas`);
     }
 
     const [owner, name, extra] = entry.repo.trim().split('/');
@@ -65,14 +73,16 @@ export function parseInitialInventory(source: string): InitialRepository[] {
     }
 
     const key = `${owner}/${name}`.toLowerCase();
-    const category = normalizedCategory(entry.category);
+    const categories = [...new Set(rawCategories.map((category) => normalizedCategory(category)))];
     const existing = repositories.get(key);
     if (existing) {
-      if (!existing.categories.includes(category)) existing.categories.push(category);
+      for (const category of categories) {
+        if (!existing.categories.includes(category)) existing.categories.push(category);
+      }
       return;
     }
 
-    repositories.set(key, { owner, name, categories: [category] });
+    repositories.set(key, { owner, name, categories });
   });
   return [...repositories.values()];
 }
@@ -83,6 +93,42 @@ function errorMessage(error: unknown): string {
 
 function repositoryKey(repository: RepoRef): string {
   return `${repository.owner}/${repository.name}`.toLowerCase();
+}
+
+interface BatchFetchResult {
+  results: FetchRepoResult[];
+  failures: InitialLoadFailure[];
+}
+
+async function fetchBatchWithFallback(
+  batch: InitialRepository[],
+  fetchBatch: InitialLoadDependencies['fetchBatch'],
+): Promise<BatchFetchResult> {
+  try {
+    return { results: await fetchBatch(batch), failures: [] };
+  } catch (error) {
+    if (batch.length === 1) {
+      const [repository] = batch;
+      return {
+        results: [],
+        failures: [
+          {
+            repo: `${repository.owner}/${repository.name}`,
+            categories: repository.categories,
+            reason: errorMessage(error),
+          },
+        ],
+      };
+    }
+
+    const midpoint = Math.ceil(batch.length / 2);
+    const left = await fetchBatchWithFallback(batch.slice(0, midpoint), fetchBatch);
+    const right = await fetchBatchWithFallback(batch.slice(midpoint), fetchBatch);
+    return {
+      results: [...left.results, ...right.results],
+      failures: [...left.failures, ...right.failures],
+    };
+  }
 }
 
 export async function loadInitialInventory(
@@ -99,25 +145,19 @@ export async function loadInitialInventory(
 
   for (let start = 0; start < repositories.length; start += batchSize) {
     const batch = repositories.slice(start, start + batchSize);
-    let results: FetchRepoResult[];
-    try {
-      results = await dependencies.fetchBatch(batch);
-    } catch (error) {
-      for (const repository of batch) {
-        failures.push({
-          repo: `${repository.owner}/${repository.name}`,
-          categories: repository.categories,
-          reason: errorMessage(error),
-        });
-      }
-      continue;
-    }
+    const { results, failures: fetchFailures } = await fetchBatchWithFallback(
+      batch,
+      dependencies.fetchBatch,
+    );
+    failures.push(...fetchFailures);
 
+    const fetchFailureKeys = new Set(fetchFailures.map(({ repo }) => repo.toLowerCase()));
     const resultsByRepo = new Map(results.map((result) => [repositoryKey(result.request), result]));
     for (const repository of batch) {
       const repo = `${repository.owner}/${repository.name}`;
       const result = resultsByRepo.get(repositoryKey(repository));
       if (!result) {
+        if (fetchFailureKeys.has(repositoryKey(repository))) continue;
         failures.push({
           repo,
           categories: repository.categories,

@@ -27,7 +27,7 @@ Basado en el puntaje obtenido, el repositorio se clasifica en uno de los siguien
 ### 🔍 Consideraciones del MVP y Limitaciones Técnicas
 
 - **Subestimación en Repositorios de Alta Actividad:** La consulta de colaboradores activos evalúa los autores distintos dentro de los **últimos 100 commits más recientes** (en una ventana de 90 días). En proyectos con un volumen extremo de contribuciones, esta métrica podría subestimar el número real de colaboradores.
-- **Identificación de Mantenedores (`active_maintainer`):** Se marca como verdadero si una persona ha contribuido en los últimos 90 días y su cuenta coincide con el dueño (`owner`) o forma parte de la lista `mentionableUsers`. En organizaciones, `mentionableUsers` actúa como una aproximación cercana y no representa estrictamente una verificación de permisos de escritura directos.
+- **Identificación de Mantenedores (`active_maintainer`):** Se marca como verdadero cuando GitHub reporta un PR mergeado en los últimos 90 días. La consulta revisa los 20 PRs mergeados más recientes y sus fechas de merge; esto evita confundir autores de commits o personas mencionables con mantenedores.
 
 ---
 
@@ -60,8 +60,8 @@ npm run db:migrate -w backend
 npm run db:load-initial -w backend
 ```
 
-El comando realiza hasta 50 consultas por lote, continúa si un lote o un
-repositorio falla y escribe el detalle de los fallos en
-`backend/reports/initial-load-report.json`. Termina con error si no se carga al
-menos el 98 % del inventario; un informe también se genera cuando no se alcanza
+El comando realiza hasta 50 consultas por lote. Si GitHub rechaza un lote, lo
+divide y reintenta en grupos menores; los repositorios que sigan fallando quedan
+en `backend/reports/initial-load-report.json`. Termina con error si no se carga
+al menos el 98 % del inventario; el informe también se genera si no se alcanza
 ese umbral.
