@@ -1,58 +1,20 @@
-## Puntaje de Salud (Health Score) y Nivel de Mantenimiento
+# Carga inicial del catálogo (OB-17)
 
-El sistema evalúa el estado y la vitalidad de cada repositorio utilizando una fórmula ponderada basada en seis señales métricas. Los pesos iniciales son ajustables en la constante `DEFAULT_HEALTH_SCORE_CONFIG` dentro de [`src/ingest/health.ts`](./src/ingest/health.ts).
+La carga importa los repositorios de `docs/testing/Repositorios.yaml`, consulta
+sus métricas actuales en GitHub y guarda cada repositorio con su puntaje de
+salud y categoría. La lista tiene 153 repositorios únicos; el proceso debe
+cargar al menos el 98 % (150 repositorios) para considerarse exitoso.
 
-### 📊 Matriz de Criterios y Ponderación
+## Requisitos
 
-| Señal                                  | Peso | Criterio de Escala e Inferencia                                                        |
-| :------------------------------------- | :--: | :------------------------------------------------------------------------------------- |
-| **Antigüedad del último commit**       |  30  | Desciende linealmente hasta 0 puntos a los 365 días.                                   |
-| **Frecuencia de commits (90 días)**    |  20  | Otorga el puntaje completo al alcanzar 10 commits.                                     |
-| **Resolución de incidencias (Issues)** |  15  | Proporción de cerradas vs. totales. Si no hay incidencias, otorga el puntaje completo. |
-| **Popularidad (Estrellas)**            |  15  | Escala logarítmica; puntaje completo al alcanzar 100,000 estrellas.                    |
-| **Recencia de Releases (12 meses)**    |  10  | Puntaje completo si existe al menos una publicación en el período.                     |
-| **Colaboradores activos (90 días)**    |  10  | Puntaje completo al detectar 5 o más autores distintos.                                |
+- Docker en ejecución.
+- `backend/.env` configurado con `DATABASE_URL` y `GITHUB_TOKEN`. Puedes copiar
+  `backend/.env.example` como punto de partida. El token necesita acceso de
+  lectura a repositorios públicos; no lo compartas ni lo subas al repositorio.
 
-### 🏷️ Niveles de Mantenimiento
+## Ejecutar
 
-Basado en el puntaje obtenido, el repositorio se clasifica en uno de los siguientes niveles:
-
-- 🟢 **`ACTIVE` (70 – 100):** Repositorio saludable, con actividad constante y comunidad activa.
-- 🟡 **`MODERATE` (40 – 69):** Mantenimiento estable pero de baja frecuencia, o con respuestas lentas a incidencias.
-- 🔴 **`AT_RISK` (0 – 39):** Repositorio desatendido o estancado.
-- 📁 **`ARCHIVED` (Especial):** Si el repositorio está archivado en GitHub, se le asigna este nivel de forma fija **sin alterar su puntaje numérico recalculado**.
-
----
-
-### 🔍 Consideraciones del MVP y Limitaciones Técnicas
-
-- **Subestimación en Repositorios de Alta Actividad:** La consulta de colaboradores activos evalúa los autores distintos dentro de los **últimos 100 commits más recientes** (en una ventana de 90 días). En proyectos con un volumen extremo de contribuciones, esta métrica podría subestimar el número real de colaboradores.
-- **Identificación de Mantenedores (`active_maintainer`):** Se marca como verdadero cuando GitHub reporta un PR mergeado en los últimos 90 días. La consulta revisa los 20 PRs mergeados más recientes y sus fechas de merge; esto evita confundir autores de commits o personas mencionables con mantenedores.
-
----
-
-### 🧪 Ejecución de Pruebas Unitarias y de Integración
-
-Los tests utilizan mocks para simular las respuestas de la API de GitHub (`fetch`), evitando llamadas reales a la red. Sin embargo, **requieren una instancia local de PostgreSQL** ya que aplican las migraciones sobre una base de datos temporal para validar la persistencia real de los datos.
-Para levantar el entorno y ejecutar los tests específicos de la ingesta desde la raíz del monorepo, corre:
-
-```powershell
-# Levantar el contenedor de la base de datos local
-npm run db:up
-# Ejecutar las suites de prueba de salud y GitHub en el workspace del backend
-npm run test -w backend -- test/ingest/github.test.ts test/ingest/health.test.ts
-```
-
-### 📥 Carga inicial del catálogo
-
-La carga inicial toma los 153 repositorios únicos de
-`docs/testing/Repositorios.yaml` (algunos tienen más de una categoría),
-consulta sus métricas actuales en GitHub, calcula el puntaje de salud y asigna
-la categoría curada. Es idempotente: volver a ejecutarla actualiza los registros
-por `github_id`.
-
-Requiere Docker, `DATABASE_URL` y un `GITHUB_TOKEN` con acceso de lectura a
-repositorios públicos:
+Desde la raíz del proyecto:
 
 ```powershell
 npm run db:up
@@ -60,4 +22,8 @@ npm run db:migrate -w backend
 npm run db:load-initial -w backend
 ```
 
-
+La carga es idempotente: puedes volver a ejecutarla para actualizar los datos.
+Si GitHub rechaza un lote, el proceso lo divide y reintenta con grupos menores.
+Al finalizar, genera `backend/reports/initial-load-report.json` con el resultado
+y el detalle de cada repositorio que no pudo cargarse. El comando termina con
+error si no se alcanza el 98 %.
