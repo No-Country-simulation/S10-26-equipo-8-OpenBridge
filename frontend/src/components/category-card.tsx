@@ -14,7 +14,7 @@ export function CategoryCard({ category }: { category: Category }) {
 
   return (
     <Link
-      href={`/catalogo/${category.slug}`}
+      href={`/catalogo?category=${encodeURIComponent(category.slug)}`}
       className={`group ${layout} hover:bg-muted md:transition-[border-color,box-shadow] md:duration-150 md:hover:border-border-strong md:hover:bg-card md:hover:shadow-sm`}
     >
       <CategoryDot slug={category.slug} className="md:hidden" />

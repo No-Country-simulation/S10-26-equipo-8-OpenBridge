@@ -27,6 +27,7 @@ export function HeroSearch() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [results, setResults] = useState<Repository[]>([]);
+  const [total, setTotal] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const term = query.trim();
@@ -64,8 +65,9 @@ export function HeroSearch() {
       try {
         const found = await searchRepositories(term);
         if (cancelled) return;
-        setResults(found);
-        setStatus(found.length ? 'results' : 'empty');
+        setResults(found.data);
+        setTotal(found.total);
+        setStatus(found.data.length ? 'results' : 'empty');
       } catch {
         if (!cancelled) setStatus('error');
       }
@@ -162,6 +164,7 @@ export function HeroSearch() {
           query={term}
           status={status}
           results={results}
+          total={total}
           activeIndex={activeIndex}
           onNavigate={() => setOpen(false)}
         />
