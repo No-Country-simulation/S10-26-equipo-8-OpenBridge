@@ -105,19 +105,20 @@ export async function getRepositories(): Promise<Repository[]> {
 const normalize = (text: string) =>
   text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-// Equivale a GET /api/v1/repositories?q=…&size=…; hasta que exista la búsqueda real
-// (OB-27) filtra los datos de prueba por nombre, descripción y categoría.
-export async function searchRepositories(query: string, size = 5): Promise<Repository[]> {
-  const term = normalize(query.trim());
-  if (!term) return [];
+export type SearchResult = { data: Repository[]; total: number };
 
-  return mockRepositories
-    .filter((r) =>
-      normalize(
-        [r.fullName, r.description ?? '', ...r.categories.flatMap((c) => [c.name, c.slug])].join(' '),
-      ).includes(term),
-    )
-    .slice(0, size);
+// Equivale a GET /api/v1/repositories?q=…&size=…, con `total` de `meta.total`; hasta que exista
+// la búsqueda real (OB-27) filtra los datos de prueba por nombre, descripción y categoría.
+export async function searchRepositories(query: string, size = 3): Promise<SearchResult> {
+  const term = normalize(query.trim());
+  if (!term) return { data: [], total: 0 };
+
+  const matches = mockRepositories.filter((r) =>
+    normalize(
+      [r.fullName, r.description ?? '', ...r.categories.flatMap((c) => [c.name, c.slug])].join(' '),
+    ).includes(term),
+  );
+  return { data: matches.slice(0, size), total: matches.length };
 }
 
 const compactNumber =new Intl.NumberFormat('en', {

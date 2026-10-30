@@ -19,7 +19,7 @@ function isTyping(target: EventTarget | null) {
   );
 }
 
-export function HeroSearch() {
+export function HeroSearch({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +27,7 @@ export function HeroSearch() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [results, setResults] = useState<Repository[]>([]);
+  const [total, setTotal] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const term = query.trim();
@@ -64,8 +65,9 @@ export function HeroSearch() {
       try {
         const found = await searchRepositories(term);
         if (cancelled) return;
-        setResults(found);
-        setStatus(found.length ? 'results' : 'empty');
+        setResults(found.data);
+        setTotal(found.total);
+        setStatus(found.data.length ? 'results' : 'empty');
       } catch {
         if (!cancelled) setStatus('error');
       }
@@ -109,7 +111,7 @@ export function HeroSearch() {
       <form
         action="/catalogo"
         role="search"
-        className="flex h-12 w-full items-center gap-3 rounded-[10px] border border-border-strong bg-background px-4 shadow-xs focus-within:border-foreground/40 md:h-15"
+        className="dark flex h-12 w-full items-center gap-3 rounded-[10px] border border-border-strong bg-background px-4 shadow-xs focus-within:border-foreground/40 md:h-15"
       >
         <Search
           className="size-5 shrink-0 text-muted-foreground"
@@ -156,12 +158,15 @@ export function HeroSearch() {
         </kbd>
       </form>
 
+      {children}
+
       {showPanel && (
         <SearchResults
           id={LISTBOX_ID}
           query={term}
           status={status}
           results={results}
+          total={total}
           activeIndex={activeIndex}
           onNavigate={() => setOpen(false)}
         />

@@ -1,0 +1,558 @@
+schema_version: '2.0'
+project: OpenBridge
+purpose: Seed reproducible del catálogo inicial de repositorios open source (OB-16)
+review_date: '2026-10-28'
+minimum_stars: 501
+license_policy:
+  Solo licencias aprobadas por la OSI. En proyectos open core (núcleo OSI y una carpeta
+  enterprise con licencia comercial) se registra la licencia del núcleo.
+categories: [auth, database, payments, ai, analytics, search]
+validation_note:
+  Los slugs de categories coinciden con backend/src/db/seed.ts. Las estrellas, el estado
+  de archivo y la actividad los trae la ingesta desde GitHub; este archivo solo define qué repos entran
+  y en qué categorías.
+repositories:
+  - repo: keycloak/keycloak
+    categories: [auth]
+    license: Apache-2.0
+    description: Identity and access management
+  - repo: nextauthjs/next-auth
+    categories: [auth]
+    license: ISC
+    description: Authentication for Next.js
+  - repo: goauthentik/authentik
+    categories: [auth]
+    license: MIT
+    description: Identity provider and SSO
+  - repo: authelia/authelia
+    categories: [auth]
+    license: Apache-2.0
+    description: Authentication and authorization server
+  - repo: ory/kratos
+    categories: [auth]
+    license: Apache-2.0
+    description: Identity and user management
+  - repo: ory/hydra
+    categories: [auth]
+    license: Apache-2.0
+    description: OAuth2 and OpenID Connect server
+  - repo: dexidp/dex
+    categories: [auth]
+    license: Apache-2.0
+    description: OpenID Connect identity service
+  - repo: oauth2-proxy/oauth2-proxy
+    categories: [auth]
+    license: MIT
+    description: Reverse proxy for OAuth authentication
+  - repo: supertokens/supertokens-core
+    categories: [auth]
+    license: Apache-2.0
+    description: User authentication framework
+  - repo: logto-io/logto
+    categories: [auth]
+    license: MPL-2.0
+    description: Identity infrastructure
+  - repo: casdoor/casdoor
+    categories: [auth]
+    license: Apache-2.0
+    description: Identity and access management
+  - repo: zitadel/zitadel
+    categories: [auth]
+    license: AGPL-3.0
+    description: Identity platform
+  - repo: kanidm/kanidm
+    categories: [auth]
+    license: MPL-2.0
+    description: Identity management
+  - repo: lucia-auth/lucia
+    categories: [auth]
+    license: MIT
+    description: Authentication library; verify current maintenance
+  - repo: pomerium/pomerium
+    categories: [auth]
+    license: Apache-2.0
+    description: Identity-aware access proxy
+  - repo: keycloak/keycloak-nodejs-connect
+    categories: [auth]
+    license: Apache-2.0
+    description: Keycloak adapter for Node.js
+  - repo: ory/oathkeeper
+    categories: [auth]
+    license: Apache-2.0
+    description: Identity and access proxy
+  - repo: supabase/supabase
+    categories: [database]
+    license: Apache-2.0
+    description: Open-source Postgres development platform
+  - repo: postgres/postgres
+    categories: [database]
+    license: PostgreSQL
+    description: Relational database
+  - repo: supabase/postgres
+    categories: [database]
+    license: PostgreSQL
+    description: Postgres with extensions
+  - repo: redis/redis
+    categories: [database]
+    license: AGPL-3.0
+    description: In-memory data store; verify current licensing for intended version
+  - repo: ClickHouse/ClickHouse
+    categories: [database, analytics]
+    license: Apache-2.0
+    description: Column-oriented analytical database
+  - repo: qdrant/qdrant
+    categories: [database]
+    license: Apache-2.0
+    description: Vector database
+  - repo: milvus-io/milvus
+    categories: [database, search]
+    license: Apache-2.0
+    description: Vector database
+  - repo: weaviate/weaviate
+    categories: [database]
+    license: BSD-3-Clause
+    description: Vector database
+  - repo: duckdb/duckdb
+    categories: [database]
+    license: MIT
+    description: Embedded analytical database
+  - repo: timescale/timescaledb
+    categories: [database]
+    license: Apache-2.0
+    description: Time-series database extension
+  - repo: valkey-io/valkey
+    categories: [database]
+    license: BSD-3-Clause
+    description: In-memory data store
+  - repo: citusdata/citus
+    categories: [database]
+    license: AGPL-3.0
+    description: Distributed PostgreSQL extension
+  - repo: apache/cassandra
+    categories: [database]
+    license: Apache-2.0
+    description: Distributed database
+  - repo: apache/couchdb
+    categories: [database]
+    license: Apache-2.0
+    description: Document database
+  - repo: etcd-io/etcd
+    categories: [database]
+    license: Apache-2.0
+    description: Distributed key-value store
+  - repo: juspay/hyperswitch
+    categories: [payments]
+    license: Apache-2.0
+    description: Payment orchestration platform
+  - repo: killbill/killbill
+    categories: [payments]
+    license: Apache-2.0
+    description: Subscription billing and payments
+  - repo: getlago/lago
+    categories: [payments]
+    license: AGPL-3.0
+    description: Open-source billing platform
+  - repo: stripe/stripe-node
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for Node.js
+  - repo: stripe/stripe-python
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for Python
+  - repo: stripe/stripe-go
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for Go
+  - repo: stripe/stripe-java
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for Java
+  - repo: stripe/stripe-php
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for PHP
+  - repo: stripe/stripe-ruby
+    categories: [payments]
+    license: MIT
+    description: Stripe API library for Ruby
+  - repo: stripe/stripe-dotnet
+    categories: [payments]
+    license: Apache-2.0
+    description: Stripe API library for .NET
+  - repo: mollie/mollie-api-php
+    categories: [payments]
+    license: BSD-2-Clause
+    description: Mollie payments API client
+  - repo: woocommerce/woocommerce
+    categories: [payments]
+    license: GPL-2.0
+    description: Commerce platform with payment integrations
+  - repo: InvoicePlane/InvoicePlane
+    categories: [payments]
+    license: MIT
+    description: Invoicing and payment tracking
+  - repo: pretix/pretix
+    categories: [payments]
+    license: AGPL-3.0
+    description: Ticketing platform with payment integrations
+  - repo: bagisto/bagisto
+    categories: [payments]
+    license: MIT
+    description: E-commerce framework with payment integrations
+  - repo: ollama/ollama
+    categories: [ai]
+    license: MIT
+    description: Run large language models locally
+  - repo: langchain-ai/langchain
+    categories: [ai]
+    license: MIT
+    description: LLM application framework
+  - repo: huggingface/transformers
+    categories: [ai]
+    license: Apache-2.0
+    description: Machine learning models and tooling
+  - repo: vllm-project/vllm
+    categories: [ai]
+    license: Apache-2.0
+    description: LLM inference and serving
+  - repo: ggml-org/llama.cpp
+    categories: [ai]
+    license: MIT
+    description: Efficient LLM inference
+  - repo: run-llama/llama_index
+    categories: [ai]
+    license: MIT
+    description: Data framework for LLM applications
+  - repo: Comfy-Org/ComfyUI
+    categories: [ai]
+    license: GPL-3.0
+    description: Node-based generative AI workflow
+  - repo: microsoft/autogen
+    categories: [ai]
+    license: MIT
+    description: Multi-agent AI framework
+  - repo: crewAIInc/crewAI
+    categories: [ai]
+    license: MIT
+    description: Multi-agent orchestration
+  - repo: BerriAI/litellm
+    categories: [ai]
+    license: MIT
+    description: LLM API gateway and proxy
+  - repo: langflow-ai/langflow
+    categories: [ai]
+    license: MIT
+    description: Visual AI workflow builder
+  - repo: mlflow/mlflow
+    categories: [ai]
+    license: Apache-2.0
+    description: ML lifecycle and experiment tracking
+  - repo: pytorch/pytorch
+    categories: [ai]
+    license: BSD-3-Clause
+    description: Machine learning framework
+  - repo: tensorflow/tensorflow
+    categories: [ai]
+    license: Apache-2.0
+    description: Machine learning framework
+  - repo: grafana/grafana
+    categories: [analytics]
+    license: AGPL-3.0
+    description: Metrics visualization and observability
+  - repo: apache/superset
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data exploration and dashboards
+  - repo: metabase/metabase
+    categories: [analytics]
+    license: AGPL-3.0
+    description: Business intelligence and analytics
+  - repo: apache/airflow
+    categories: [analytics]
+    license: Apache-2.0
+    description: Workflow orchestration
+  - repo: apache/kafka
+    categories: [analytics]
+    license: Apache-2.0
+    description: Event streaming
+  - repo: prometheus/prometheus
+    categories: [analytics]
+    license: Apache-2.0
+    description: Monitoring and metrics
+  - repo: openobserve/openobserve
+    categories: [analytics]
+    license: AGPL-3.0
+    description: Logs, metrics and traces
+  - repo: opensearch-project/OpenSearch
+    categories: [analytics]
+    license: Apache-2.0
+    description: Search and analytics suite
+  - repo: apache/flink
+    categories: [analytics]
+    license: Apache-2.0
+    description: Stream processing
+  - repo: apache/druid
+    categories: [analytics]
+    license: Apache-2.0
+    description: Real-time analytics database
+  - repo: getredash/redash
+    categories: [analytics]
+    license: BSD-2-Clause
+    description: Query and visualization dashboards
+  - repo: lightdash/lightdash
+    categories: [analytics]
+    license: MIT
+    description: Analytics and BI layer
+  - repo: evidence-dev/evidence
+    categories: [analytics]
+    license: MIT
+    description: Analytics-as-code
+  - repo: apache/spark
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data processing engine
+  - repo: dbt-labs/dbt
+    categories: [analytics]
+    license: Apache-2.0
+    description: Analytics engineering
+  - repo: apache/iceberg
+    categories: [analytics]
+    license: Apache-2.0
+    description: Open table format for analytics
+  - repo: meilisearch/meilisearch
+    categories: [search]
+    license: MIT
+    description: Search engine with typo tolerance
+  - repo: typesense/typesense
+    categories: [search]
+    license: GPL-3.0
+    description: Fast search engine
+  - repo: apache/solr
+    categories: [search]
+    license: Apache-2.0
+    description: Search platform
+  - repo: quickwit-oss/quickwit
+    categories: [search]
+    license: Apache-2.0
+    description: Cloud-native search engine
+  - repo: quickwit-oss/tantivy
+    categories: [search]
+    license: MIT
+    description: Full-text search library
+  - repo: zincsearch/zincsearch
+    categories: [search]
+    license: Apache-2.0
+    description: Search engine
+  - repo: typesense/typesense-js
+    categories: [search]
+    license: Apache-2.0
+    description: Typesense JavaScript client
+  - repo: meilisearch/meilisearch-js
+    categories: [search]
+    license: MIT
+    description: Meilisearch JavaScript client
+  - repo: apache/lucene
+    categories: [search]
+    license: Apache-2.0
+    description: Search library
+  - repo: valeriansaliou/sonic
+    categories: [search]
+    license: MPL-2.0
+    description: Search backend
+  - repo: nextapps-de/flexsearch
+    categories: [search]
+    license: Apache-2.0
+    description: Full-text search library
+  - repo: oramasearch/orama
+    categories: [search]
+    license: Apache-2.0
+    description: Search engine for applications
+  - repo: ory/ladon
+    categories: [auth]
+    license: Apache-2.0
+    description: Authorization library
+  - repo: go-chi/chi
+    categories: [auth]
+    license: MIT
+    description: Go HTTP router useful in auth services
+  - repo: apache/casbin
+    categories: [auth]
+    license: Apache-2.0
+    description: Authorization library
+  - repo: prisma/orm
+    categories: [database]
+    license: Apache-2.0
+    description: Database toolkit
+  - repo: typeorm/typeorm
+    categories: [database]
+    license: MIT
+    description: TypeScript ORM
+  - repo: sequelize/sequelize
+    categories: [database]
+    license: MIT
+    description: Node.js ORM
+  - repo: drizzle-team/drizzle-orm
+    categories: [database]
+    license: Apache-2.0
+    description: TypeScript ORM
+  - repo: hasura/graphql-engine
+    categories: [database]
+    license: Apache-2.0
+    description: GraphQL data API
+  - repo: medusajs/medusa
+    categories: [payments]
+    license: MIT
+    description: Commerce platform with payment modules
+  - repo: saleor/saleor
+    categories: [payments]
+    license: BSD-3-Clause
+    description: Commerce platform with payment integrations
+  - repo: vendurehq/vendure
+    categories: [payments]
+    license: GPL-3.0
+    description: Commerce platform with payment integrations
+  - repo: openai/openai-python
+    categories: [ai]
+    license: Apache-2.0
+    description: OpenAI API client
+  - repo: ollama/ollama-python
+    categories: [ai]
+    license: MIT
+    description: Python client for Ollama
+  - repo: 567-labs/instructor
+    categories: [ai]
+    license: MIT
+    description: Structured outputs for LLMs
+  - repo: deepset-ai/haystack
+    categories: [ai]
+    license: Apache-2.0
+    description: LLM and RAG framework
+  - repo: chroma-core/chroma
+    categories: [ai]
+    license: Apache-2.0
+    description: Embedding database
+  - repo: pydantic/pydantic-ai
+    categories: [ai]
+    license: MIT
+    description: Agent framework
+  - repo: huggingface/peft
+    categories: [ai]
+    license: Apache-2.0
+    description: Parameter-efficient fine-tuning
+  - repo: keras-team/keras
+    categories: [ai]
+    license: Apache-2.0
+    description: Deep learning framework
+  - repo: apache/beam
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data processing
+  - repo: dagster-io/dagster
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data orchestration
+  - repo: prefecthq/prefect
+    categories: [analytics]
+    license: Apache-2.0
+    description: Workflow orchestration
+  - repo: streamlit/streamlit
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data apps
+  - repo: plotly/dash
+    categories: [analytics]
+    license: MIT
+    description: Analytics dashboards
+  - repo: apache/pinot
+    categories: [analytics]
+    license: Apache-2.0
+    description: Real-time OLAP database
+  - repo: apache/hudi
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data lake platform
+  - repo: apache/arrow
+    categories: [analytics]
+    license: Apache-2.0
+    description: Columnar data format
+  - repo: apache/parquet-format
+    categories: [analytics]
+    license: Apache-2.0
+    description: Columnar storage format
+  - repo: apache/rocketmq
+    categories: [analytics]
+    license: Apache-2.0
+    description: Messaging and streaming
+  - repo: cars10/elasticvue
+    categories: [search]
+    license: MIT
+    description: Search cluster UI
+  - repo: algolia/autocomplete
+    categories: [search]
+    license: MIT
+    description: Search UI library
+  - repo: elastic/elasticsearch-js
+    categories: [search]
+    license: Apache-2.0
+    description: Elasticsearch JS client; server licensing differs
+  - repo: apache/arrow-rs
+    categories: [search]
+    license: Apache-2.0
+    description: Data tooling
+  - repo: ory/keto
+    categories: [auth]
+    license: Apache-2.0
+    description: Authorization tools
+  - repo: apache/ignite
+    categories: [database]
+    license: Apache-2.0
+    description: Distributed database
+  - repo: apache/hbase
+    categories: [database]
+    license: Apache-2.0
+    description: Distributed data store
+  - repo: apache/seatunnel
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data integration and analytics
+  - repo: apache/zeppelin
+    categories: [analytics]
+    license: Apache-2.0
+    description: Data analytics notebooks
+  - repo: unkeyed/unkey
+    categories: [auth]
+    license: Apache-2.0
+    description: API authentication and authorization
+  - repo: openfga/openfga
+    categories: [auth]
+    license: Apache-2.0
+    description: Fine-grained authorization
+  - repo: ory/fosite
+    categories: [auth]
+    license: Apache-2.0
+    description: OAuth2 framework
+  - repo: stripe/stripe-mock
+    categories: [payments]
+    license: MIT
+    description: Mock Stripe API
+  - repo: payum/payum
+    categories: [payments]
+    license: MIT
+    description: Payment abstraction library
+  - repo: thephpleague/omnipay
+    categories: [payments]
+    license: MIT
+    description: Payment processing abstraction
+  - repo: pandas-dev/pandas
+    categories: [analytics]
+    license: BSD-3-Clause
+    description: Data analysis library
+  - repo: numpy/numpy
+    categories: [analytics]
+    license: BSD-3-Clause
+    description: Numerical computing
+  - repo: meilisearch/meilisearch-python
+    categories: [search]
+    license: MIT
+    description: Meilisearch Python client
