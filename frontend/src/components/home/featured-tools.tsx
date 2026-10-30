@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ToolCard, ToolCardSkeleton } from '@/components/tool-card';
+import { ToolCard, ToolCardSkeleton } from '@/components/shared/tool-card';
 import { getRepositories } from '@/lib/repositories';
 
 const FEATURED_SIZE = 6;
