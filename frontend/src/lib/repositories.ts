@@ -102,6 +102,118 @@ export async function getRepositories(): Promise<Repository[]> {
   return mockRepositories;
 }
 
+// Solo para el catálogo: da más peso a las categorías y permite probar la paginación.
+// No entran en getRepositories() para no cambiar los destacados del home.
+const catalogOnlyRepositories: Repository[] = [
+  {
+    id: 'mock-authentik',
+    fullName: 'goauthentik/authentik',
+    name: 'authentik',
+    description: 'Proveedor de identidad con SSO, MFA y flujos de autenticación configurables.',
+    primaryLanguage: 'Python',
+    licenseSpdx: 'MIT',
+    stars: 15200,
+    healthScore: 82,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 8 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-zitadel',
+    fullName: 'zitadel/zitadel',
+    name: 'zitadel',
+    description: 'Gestión de identidades multi-tenant con OIDC, SAML y passkeys.',
+    primaryLanguage: 'Go',
+    licenseSpdx: 'Apache-2.0',
+    stars: 9200,
+    healthScore: 79,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 30 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-kratos',
+    fullName: 'ory/kratos',
+    name: 'kratos',
+    description: 'Servidor de identidad y gestión de usuarios pensado para la nube.',
+    primaryLanguage: 'Go',
+    licenseSpdx: 'Apache-2.0',
+    stars: 11500,
+    healthScore: 58,
+    maintenanceLevel: 'MODERATE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 25 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-lago',
+    fullName: 'getlago/lago',
+    name: 'lago',
+    description: 'Facturación basada en uso y suscripciones, alternativa abierta a Stripe Billing.',
+    primaryLanguage: 'Ruby',
+    licenseSpdx: 'AGPL-3.0',
+    stars: 7800,
+    healthScore: 76,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'payments', name: 'Pagos' }],
+    lastCommitAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-killbill',
+    fullName: 'killbill/killbill',
+    name: 'killbill',
+    description: 'Plataforma de facturación y pagos recurrentes.',
+    primaryLanguage: 'Java',
+    licenseSpdx: 'Apache-2.0',
+    stars: 4100,
+    healthScore: 34,
+    maintenanceLevel: 'AT_RISK',
+    categories: [{ slug: 'payments', name: 'Pagos' }],
+    lastCommitAt: new Date(Date.now() - 95 * 86_400_000).toISOString(),
+  },
+];
+
+export type Paginated<T> = {
+  data: T[];
+  meta: { page: number; size: number; total: number; totalPages: number };
+};
+
+export type RepositorySort = 'health' | 'stars' | 'updated';
+
+export type ListParams = {
+  category?: string;
+  sort?: RepositorySort;
+  page?: number;
+  size?: number;
+};
+
+export const DEFAULT_PAGE_SIZE = 20;
+
+const sorters: Record<RepositorySort, (a: Repository, b: Repository) => number> = {
+  health: (a, b) => b.healthScore - a.healthScore,
+  stars: (a, b) => b.stars - a.stars,
+  updated: (a, b) => b.lastCommitAt.localeCompare(a.lastCommitAt),
+};
+
+// Equivale a GET /api/v1/repositories?category=…&sort=…&page=…&size=… (contrato v1, paginado).
+// Hasta que el backend (OB-22) esté listo filtra y ordena los datos de prueba.
+export async function listRepositories({
+  category,
+  sort = 'stars',
+  page = 1,
+  size = DEFAULT_PAGE_SIZE,
+}: ListParams = {}): Promise<Paginated<Repository>> {
+  const matches = [...mockRepositories, ...catalogOnlyRepositories]
+    .filter((r) => !category || r.categories.some((c) => c.slug === category))
+    .sort(sorters[sort]);
+  const start = (page - 1) * size;
+
+  return {
+    data: matches.slice(start, start + size),
+    meta: { page, size, total: matches.length, totalPages: Math.ceil(matches.length / size) },
+  };
+}
+
+
 const normalize = (text: string) =>
   text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
