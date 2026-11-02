@@ -7,25 +7,29 @@ import {
   type InitialRepository,
 } from '../../src/ingest/initial-load.js';
 
-const fixture = (owner: string, name: string, category = 'auth'): InitialRepository => ({
+const fixture = (
+  owner: string,
+  name: string,
+  category = 'auth',
+  license = 'MIT',
+): InitialRepository => ({
   owner,
   name,
   categories: [category],
+  license,
 });
 
 describe('carga inicial del inventario', () => {
   it('lee la lista inicial real y normaliza la categoría de autenticación', async () => {
-    const source = await readFile(
-      new URL('../../../docs/testing/Repositorios.yaml', import.meta.url),
-      'utf8',
-    );
+    const source = await readFile(new URL('../../../seed/repos.yaml', import.meta.url), 'utf8');
     const repositories = parseInitialInventory(source);
 
-    expect(repositories).toHaveLength(153);
+    expect(repositories).toHaveLength(136);
     expect(repositories[0]).toMatchObject({
       owner: 'keycloak',
       name: 'keycloak',
       categories: ['auth'],
+      license: 'Apache-2.0',
     });
     expect(
       repositories.find(
@@ -36,15 +40,44 @@ describe('carga inicial del inventario', () => {
   });
 
   it('rechaza identificadores inválidos y combina categorías de repositorios repetidos', () => {
-    expect(() => parseInitialInventory('repositories: [{ repo: invalid, category: ai }]')).toThrow(
-      /Identificador inválido/,
-    );
+    expect(() =>
+      parseInitialInventory('repositories: [{ repo: invalid, categories: [ai], license: MIT }]'),
+    ).toThrow(/Identificador inválido/);
     const repositories = parseInitialInventory(
-      'repositories:\n  - repo: acme/tool\n    categories: [database]\n  - repo: ACME/TOOL\n    categories: [analytics]\n',
+      'repositories:\n  - repo: acme/tool\n    categories: [database]\n    license: MIT\n  - repo: ACME/TOOL\n    categories: [analytics]\n    license: MIT\n',
     );
     expect(repositories).toEqual([
-      { owner: 'acme', name: 'tool', categories: ['database', 'analytics'] },
+      { owner: 'acme', name: 'tool', categories: ['database', 'analytics'], license: 'MIT' },
     ]);
+  });
+
+  it('usa la licencia del inventario cuando GitHub devuelve NOASSERTION', async () => {
+    const repositories = [fixture('acme', 'tool', 'database', 'Apache-2.0')];
+    const persistRepository = vi.fn().mockResolvedValue(undefined);
+    const report = await loadInitialInventory(repositories, {
+      fetchBatch: vi.fn(async (batch: RepoRef[]) =>
+        batch.map((request): FetchRepoResult => ({
+          request,
+          status: 'ok',
+          renamed: false,
+          repository: {
+            githubId: 1,
+            fullName: 'acme/tool',
+            name: 'tool',
+            url: 'https://github.com/acme/tool',
+            licenseSpdx: 'NOASSERTION',
+          },
+        })),
+      ),
+      persistRepository,
+      categoryIds: new Map([['database', 'category-database']]),
+    });
+
+    expect(report.loaded).toBe(1);
+    expect(persistRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ licenseSpdx: 'Apache-2.0' }),
+      ['category-database'],
+    );
   });
 
   it('divide lotes fallidos y reporta solo los repositorios que siguen fallando', async () => {
@@ -66,7 +99,10 @@ describe('carga inicial del inventario', () => {
         status: 'ok',
         renamed: false,
         repository: {
-          githubId: repositories.indexOf(repository) + 1,
+          githubId:
+            repositories.findIndex(
+              ({ owner, name }) => owner === repository.owner && name === repository.name,
+            ) + 1,
           fullName: `${repository.owner}/${repository.name}`,
           name: repository.name,
           url: `https://github.com/${repository.owner}/${repository.name}`,

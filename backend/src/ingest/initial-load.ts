@@ -2,20 +2,11 @@ import { parse } from 'yaml';
 import type { RepositoryInput } from '../db/repositories.js';
 import type { FetchRepoResult, RepoRef } from './github.js';
 
-const CATEGORY_ALIASES: Record<string, string> = {
-  authentication: 'auth',
-  auth: 'auth',
-  database: 'database',
-  payments: 'payments',
-  ai: 'ai',
-  analytics: 'analytics',
-  search: 'search',
-};
-
 const TARGET_SUCCESS_RATE = 0.98;
 
 export interface InitialRepository extends RepoRef {
   categories: string[];
+  license: string;
 }
 
 export interface InitialLoadFailure {
@@ -44,7 +35,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizedCategory(category: string): string {
-  return CATEGORY_ALIASES[category.toLowerCase()] ?? category.toLowerCase();
+  return category.toLowerCase();
 }
 
 export function parseInitialInventory(source: string): InitialRepository[] {
@@ -66,6 +57,11 @@ export function parseInitialInventory(source: string): InitialRepository[] {
     ) {
       throw new Error(`El repositorio en la posición ${index + 1} debe incluir categorías válidas`);
     }
+    if (typeof entry.license !== 'string' || !entry.license.trim()) {
+      throw new Error(
+        `El repositorio en la posición ${index + 1} debe incluir una licencia válida`,
+      );
+    }
 
     const [owner, name, extra] = entry.repo.trim().split('/');
     if (!owner || !name || extra !== undefined) {
@@ -82,7 +78,7 @@ export function parseInitialInventory(source: string): InitialRepository[] {
       return;
     }
 
-    repositories.set(key, { owner, name, categories });
+    repositories.set(key, { owner, name, categories, license: entry.license.trim() });
   });
   return [...repositories.values()];
 }
@@ -195,7 +191,10 @@ export async function loadInitialInventory(
       }
 
       try {
-        await dependencies.persistRepository(result.repository, categoryIds);
+        await dependencies.persistRepository(
+          { ...result.repository, licenseSpdx: repository.license },
+          categoryIds,
+        );
         loaded += 1;
       } catch (error) {
         failures.push({ repo, categories: repository.categories, reason: errorMessage(error) });

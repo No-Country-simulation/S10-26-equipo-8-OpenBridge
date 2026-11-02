@@ -9,7 +9,7 @@ import { fetchRepos } from './github.js';
 import { loadInitialInventory, parseInitialInventory } from './initial-load.js';
 
 const backendDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const inventoryPath = resolve(backendDirectory, '../docs/testing/Repositorios.yaml');
+const inventoryPath = resolve(backendDirectory, '../seed/repos.yaml');
 const reportPath = resolve(backendDirectory, 'reports/initial-load-report.json');
 
 async function main(): Promise<void> {
