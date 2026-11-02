@@ -14,3 +14,6 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+
+# Reportes de los scripts de carga
+/backend/reports/
