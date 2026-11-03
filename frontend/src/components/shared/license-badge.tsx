@@ -3,7 +3,7 @@ import { Scale } from 'lucide-react';
 const base = 'inline-flex h-5 shrink-0 items-center gap-1 rounded-sm px-1.5 text-xs font-medium';
 
 // Licencias con copyleft fuerte: GPL, AGPL y LGPL (cualquier versión).
-const isCopyleft = (spdx: string) => /^(A|L)?GPL/i.test(spdx);
+export const isCopyleft = (spdx: string) => /^(A|L)?GPL/i.test(spdx);
 
 export function LicenseBadge({ spdx }: { spdx: string | null }) {
   if (!spdx) {
