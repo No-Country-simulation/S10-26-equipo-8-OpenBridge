@@ -59,7 +59,8 @@ const mockRepositories: Repository[] = [
     id: 'mock-plausible',
     fullName: 'plausible/analytics',
     name: 'analytics',
-    description: 'Analítica web simple y respetuosa con la privacidad, alternativa a Google Analytics.',
+    description:
+      'Analítica web simple y respetuosa con la privacidad, alternativa a Google Analytics.',
     primaryLanguage: 'Elixir',
     licenseSpdx: 'AGPL-3.0',
     stars: 19600,
@@ -181,6 +182,10 @@ export type RepositorySort = 'health' | 'stars' | 'updated' | 'relevance';
 
 export type ListParams = {
   category?: string;
+  language?: string;
+  license?: string;
+  maintenance?: MaintenanceLevel[];
+  minStars?: number;
   q?: string;
   sort?: RepositorySort;
   page?: number;
@@ -219,6 +224,10 @@ const relevance = (r: Repository, term: string) =>
 // Hasta que el backend (OB-22) esté listo filtra y ordena los datos de prueba.
 export async function listRepositories({
   category,
+  language,
+  license,
+  maintenance,
+  minStars,
   q,
   sort = q ? 'relevance' : 'stars',
   page = 1,
@@ -227,6 +236,10 @@ export async function listRepositories({
   const term = normalize((q ?? '').trim());
   const matches = [...mockRepositories, ...catalogOnlyRepositories]
     .filter((r) => !category || r.categories.some((c) => c.slug === category))
+    .filter((r) => !language || r.primaryLanguage === language)
+    .filter((r) => !license || r.licenseSpdx === license)
+    .filter((r) => !maintenance?.length || maintenance.includes(r.maintenanceLevel))
+    .filter((r) => !minStars || r.stars >= minStars)
     .filter((r) => !term || searchableText(r).includes(term))
     .sort(
       sort === 'relevance'
@@ -241,8 +254,50 @@ export async function listRepositories({
   };
 }
 
-const normalize = (text: string) =>
-  text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const MAINTENANCE_LEVELS: MaintenanceLevel[] = ['ACTIVE', 'MODERATE', 'AT_RISK', 'ARCHIVED'];
+
+type FilterOption = { value: string; count: number };
+
+// Forma de GET /api/v1/filters (contrato v1): opciones con su cantidad de repositorios.
+export type CatalogFilters = {
+  languages: FilterOption[];
+  licenses: FilterOption[];
+  categories: (FilterOption & { label: string })[];
+  maintenanceLevels: (FilterOption & { value: MaintenanceLevel })[];
+  stars: { min: number; max: number };
+};
+
+function countBy<T extends string>(values: (T | null | undefined)[]) {
+  const counts = new Map<T, number>();
+  for (const value of values) if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+// Equivale a GET /api/v1/filters. Hasta que exista el endpoint real (OB-28) calcula las opciones
+// a partir de los datos de prueba.
+export async function getFilters(): Promise<CatalogFilters> {
+  const all = [...mockRepositories, ...catalogOnlyRepositories];
+  const categoryNames = new Map(all.flatMap((r) => r.categories.map((c) => [c.slug, c.name])));
+  const stars = all.map((r) => r.stars);
+
+  return {
+    languages: countBy(all.map((r) => r.primaryLanguage)),
+    licenses: countBy(all.map((r) => r.licenseSpdx)),
+    categories: countBy(all.flatMap((r) => r.categories.map((c) => c.slug))).map((o) => ({
+      ...o,
+      label: categoryNames.get(o.value) ?? o.value,
+    })),
+    maintenanceLevels: MAINTENANCE_LEVELS.map((value) => ({
+      value,
+      count: all.filter((r) => r.maintenanceLevel === value).length,
+    })).filter((o) => o.count > 0),
+    stars: { min: Math.min(...stars), max: Math.max(...stars) },
+  };
+}
+
+const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export type SearchResult = { data: Repository[]; total: number };
 
@@ -260,7 +315,7 @@ export async function searchRepositories(query: string, size = 3): Promise<Searc
   return { data: matches.slice(0, size), total: matches.length };
 }
 
-const compactNumber =new Intl.NumberFormat('en', {
+const compactNumber = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
@@ -381,7 +436,8 @@ export async function getRepository(id: string): Promise<RepositoryDetail | null
   const repository = [...mockRepositories, ...catalogOnlyRepositories].find((r) => r.id === id);
   if (!repository) return null;
 
-  const risky = repository.maintenanceLevel === 'AT_RISK' || repository.maintenanceLevel === 'ARCHIVED';
+  const risky =
+    repository.maintenanceLevel === 'AT_RISK' || repository.maintenanceLevel === 'ARCHIVED';
   const lastCommit = new Date(repository.lastCommitAt).getTime();
 
   return {
