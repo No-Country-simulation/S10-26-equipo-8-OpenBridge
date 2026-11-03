@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { ActiveFilters } from '@/components/catalog/active-filters';
 import { CatalogHeader } from '@/components/catalog/catalog-header';
 import { CatalogSearch } from '@/components/catalog/catalog-search';
 import { EmptyState } from '@/components/catalog/empty-state';
@@ -30,7 +30,6 @@ function positiveInt(value: string | undefined, fallback: number) {
 
 export default async function CatalogPage({ searchParams }: PageProps<'/catalogo'>) {
   const params = await searchParams;
-  const categorySlug = first(params.category);
   const rawQuery = first(params.q)?.trim() ?? '';
   const q = rawQuery.length >= MIN_QUERY_LENGTH ? rawQuery : undefined;
   const sortParam = SORTS.find((s) => s === first(params.sort));
@@ -39,16 +38,17 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
   const page = positiveInt(first(params.page), 1);
   const size = Math.min(positiveInt(first(params.size), DEFAULT_PAGE_SIZE), MAX_SIZE);
 
-  const language = first(params.language) || undefined;
-  const license = first(params.license) || undefined;
   const maintenance = (first(params.maintenance) ?? '')
     .split(',')
     .filter((m): m is MaintenanceLevel => MAINTENANCE_LEVELS.includes(m as MaintenanceLevel));
   const minStars = positiveInt(first(params.minStars), 0) || undefined;
 
   const [categories, filters] = await Promise.all([getCategories(), getFilters()]);
-  const category = categorySlug ? categories.find((c) => c.slug === categorySlug) : undefined;
-  if (categorySlug && !category) notFound();
+  // Los valores que no existen en las opciones se ignoran, así una URL vieja o mal escrita no rompe.
+  const category = categories.find((c) => c.slug === first(params.category));
+  const categorySlug = category?.slug;
+  const language = filters.languages.find((o) => o.value === first(params.language))?.value;
+  const license = filters.licenses.find((o) => o.value === first(params.license))?.value;
 
   const filterParams = { category: categorySlug, language, license, maintenance, minStars };
   const hasFilters = Boolean(language || license || maintenance.length || minStars);
@@ -85,6 +85,7 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
               hasQuery={Boolean(q)}
               params={{ ...filterParams, q, size: urlParams.size }}
             />
+            <ActiveFilters filters={filters} params={{ ...urlParams, q }} />
             {data.length === 0 ? (
               <EmptyState
                 scoped={Boolean(category)}
