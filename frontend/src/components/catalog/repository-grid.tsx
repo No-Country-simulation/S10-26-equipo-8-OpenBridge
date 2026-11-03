@@ -1,7 +1,7 @@
 import { ToolCard, ToolCardSkeleton } from '@/components/shared/tool-card';
 import type { Repository } from '@/lib/repositories';
 
-const grid = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3';
+const grid = 'grid gap-4 sm:grid-cols-2';
 
 export function RepositoryGrid({ repositories }: { repositories: Repository[] }) {
   return (
