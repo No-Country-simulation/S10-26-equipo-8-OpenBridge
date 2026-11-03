@@ -259,3 +259,119 @@ export function formatLastCommit(iso: string, now = Date.now()) {
   }
   return 'hace un momento';
 }
+
+export type IntegrationType = 'REST_API' | 'DOCKER' | 'SDK' | 'WEBHOOK' | 'CLI';
+export type IdeaDifficulty = 'LOW' | 'MEDIUM' | 'HIGH';
+
+// Elemento de `integrationIdeas` en GET /api/v1/repositories/:id (contrato v1).
+export type IntegrationIdea = {
+  id: string;
+  title: string;
+  summary: string;
+  integrationType: IntegrationType;
+  difficulty: IdeaDifficulty;
+  triggers: { event: string; description: string }[];
+  snippet: { language: string; code: string } | null;
+  stackCompatibility: string[];
+  connectsWith: { id: string; fullName: string }[];
+};
+
+// GET /api/v1/repositories/:id (contrato v1): el listado más los campos de la ficha.
+export type RepositoryDetail = Repository & {
+  url: string;
+  homepage: string | null;
+  forks: number;
+  openIssues: number;
+  lastReleaseAt: string | null;
+  archived: boolean;
+  topics: string[];
+  activeMaintainer: boolean;
+  lastSyncedAt: string;
+  // [] = ideas en curaduría; el contrato nunca expone las DRAFT o REJECTED.
+  integrationIdeas: IntegrationIdea[];
+};
+
+const mockIntegrationIdeas: Record<string, IntegrationIdea[]> = {
+  'mock-keycloak': [
+    {
+      id: 'idea-keycloak-nextjs',
+      title: 'SSO para una app Next.js',
+      summary: 'Delegar el login en Keycloak vía OpenID Connect.',
+      integrationType: 'REST_API',
+      difficulty: 'MEDIUM',
+      triggers: [{ event: 'user.login', description: 'Inicio de sesión' }],
+      snippet: {
+        language: 'typescript',
+        code: "import KeycloakProvider from 'next-auth/providers/keycloak'\n\nKeycloakProvider({\n  clientId: process.env.KC_CLIENT_ID,\n  clientSecret: process.env.KC_CLIENT_SECRET,\n  issuer: 'https://auth.miapp.com/realms/miapp',\n})",
+      },
+      stackCompatibility: ['nextjs', 'express'],
+      connectsWith: [{ id: 'mock-authentik', fullName: 'goauthentik/authentik' }],
+    },
+    {
+      id: 'idea-keycloak-docker',
+      title: 'Keycloak self-hosted con Docker',
+      summary: 'Levantar Keycloak con su base de datos en un solo compose.',
+      integrationType: 'DOCKER',
+      difficulty: 'LOW',
+      triggers: [],
+      snippet: {
+        language: 'yaml',
+        code: 'services:\n  keycloak:\n    image: quay.io/keycloak/keycloak\n    command: start-dev\n    ports:\n      - "8080:8080"',
+      },
+      stackCompatibility: ['docker'],
+      connectsWith: [],
+    },
+  ],
+  'mock-supabase': [
+    {
+      id: 'idea-supabase-client',
+      title: 'Cliente JavaScript tipado',
+      summary: 'La forma más rápida desde Next.js: auth, queries y realtime con un solo cliente.',
+      integrationType: 'SDK',
+      difficulty: 'LOW',
+      triggers: [{ event: 'row.insert', description: 'Nuevo pedido en la tabla orders' }],
+      snippet: {
+        language: 'typescript',
+        code: "import { createClient } from '@supabase/supabase-js'\n\nconst supabase = createClient(\n  process.env.SUPABASE_URL,\n  process.env.SUPABASE_ANON_KEY\n)\n\nconst { data } = await supabase\n  .from('orders')\n  .select('id, status, total')",
+      },
+      stackCompatibility: ['nextjs', 'react', 'nodejs', 'typescript'],
+      connectsWith: [{ id: 'mock-keycloak', fullName: 'keycloak/keycloak' }],
+    },
+  ],
+};
+
+const mockHomepages: Record<string, string> = {
+  'mock-supabase': 'https://supabase.com',
+  'mock-keycloak': 'https://www.keycloak.org',
+  'mock-meilisearch': 'https://www.meilisearch.com',
+  'mock-plausible': 'https://plausible.io',
+  'mock-ollama': 'https://ollama.com',
+};
+
+// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
+// Se cambia por el fetch a GET /api/v1/repositories/:id cuando el backend esté listo.
+export async function getRepository(id: string): Promise<RepositoryDetail | null> {
+  const repository = [...mockRepositories, ...catalogOnlyRepositories].find((r) => r.id === id);
+  if (!repository) return null;
+
+  const risky = repository.maintenanceLevel === 'AT_RISK' || repository.maintenanceLevel === 'ARCHIVED';
+  const lastCommit = new Date(repository.lastCommitAt).getTime();
+
+  return {
+    ...repository,
+    url: `https://github.com/${repository.fullName}`,
+    homepage: mockHomepages[id] ?? null,
+    forks: Math.round(repository.stars / 9),
+    openIssues: risky ? 212 : Math.round(repository.stars / 130),
+    lastReleaseAt: risky ? null : new Date(lastCommit - 5 * 86_400_000).toISOString(),
+    archived: repository.maintenanceLevel === 'ARCHIVED',
+    topics: [
+      ...repository.categories.map((c) => c.slug),
+      ...(repository.primaryLanguage ? [repository.primaryLanguage.toLowerCase()] : []),
+      'open-source',
+    ],
+    activeMaintainer: !risky,
+    lastSyncedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    integrationIdeas: mockIntegrationIdeas[id] ?? [],
+  };
+}
