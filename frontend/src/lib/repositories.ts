@@ -177,10 +177,11 @@ export type Paginated<T> = {
   meta: { page: number; size: number; total: number; totalPages: number };
 };
 
-export type RepositorySort = 'health' | 'stars' | 'updated';
+export type RepositorySort = 'health' | 'stars' | 'updated' | 'relevance';
 
 export type ListParams = {
   category?: string;
+  q?: string;
   sort?: RepositorySort;
   page?: number;
   size?: number;
@@ -188,23 +189,50 @@ export type ListParams = {
 
 export const DEFAULT_PAGE_SIZE = 20;
 
-const sorters: Record<RepositorySort, (a: Repository, b: Repository) => number> = {
+// Mínimo de caracteres para buscar por texto (contrato v1).
+export const MIN_QUERY_LENGTH = 2;
+
+const sorters: Record<
+  Exclude<RepositorySort, 'relevance'>,
+  (a: Repository, b: Repository) => number
+> = {
   health: (a, b) => b.healthScore - a.healthScore,
   stars: (a, b) => b.stars - a.stars,
   updated: (a, b) => b.lastCommitAt.localeCompare(a.lastCommitAt),
 };
 
-// Equivale a GET /api/v1/repositories?category=…&sort=…&page=…&size=… (contrato v1, paginado).
+const searchableText = (r: Repository) =>
+  normalize(
+    [
+      r.fullName,
+      r.description ?? '',
+      r.primaryLanguage ?? '',
+      ...r.categories.map((c) => c.name),
+    ].join(' '),
+  );
+
+// Relevancia de prueba: pesa más que el texto esté en el nombre que en la descripción.
+const relevance = (r: Repository, term: string) =>
+  (normalize(r.fullName).includes(term) ? 2 : 0) + (searchableText(r).includes(term) ? 1 : 0);
+
+// Equivale a GET /api/v1/repositories?category=…&q=…&sort=…&page=…&size=… (contrato v1, paginado).
 // Hasta que el backend (OB-22) esté listo filtra y ordena los datos de prueba.
 export async function listRepositories({
   category,
-  sort = 'stars',
+  q,
+  sort = q ? 'relevance' : 'stars',
   page = 1,
   size = DEFAULT_PAGE_SIZE,
 }: ListParams = {}): Promise<Paginated<Repository>> {
+  const term = normalize((q ?? '').trim());
   const matches = [...mockRepositories, ...catalogOnlyRepositories]
     .filter((r) => !category || r.categories.some((c) => c.slug === category))
-    .sort(sorters[sort]);
+    .filter((r) => !term || searchableText(r).includes(term))
+    .sort(
+      sort === 'relevance'
+        ? (a, b) => relevance(b, term) - relevance(a, term) || sorters.stars(a, b)
+        : sorters[sort],
+    );
   const start = (page - 1) * size;
 
   return {
@@ -212,7 +240,6 @@ export async function listRepositories({
     meta: { page, size, total: matches.length, totalPages: Math.ceil(matches.length / size) },
   };
 }
-
 
 const normalize = (text: string) =>
   text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
