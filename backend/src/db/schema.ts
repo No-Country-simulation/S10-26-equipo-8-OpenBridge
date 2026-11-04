@@ -183,6 +183,29 @@ export const embedding = pgTable(
   ],
 );
 
+export const syncRunStatus = pgEnum('sync_run_status', ['RUNNING', 'COMPLETED', 'FAILED']);
+
+// Una ejecución de la sincronización con GitHub. Se actualiza después de
+// cada lote para que, si el proceso se corta, el próximo arranque la retome
+// (ver src/ingest/sync-run.ts). La duración es finished_at - started_at; en
+// una ejecución retomada incluye el tiempo que estuvo cortada.
+export const syncRun = pgTable('sync_run', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  status: syncRunStatus('status').notNull().default('RUNNING'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  reposTotal: integer('repos_total').notNull(),
+  reposOk: integer('repos_ok').notNull().default(0),
+  reposFailed: integer('repos_failed').notNull().default(0),
+  // Puntos del límite de GitHub: la suma del costo de cada query y el saldo
+  // que informó la última.
+  rateLimitUsed: integer('rate_limit_used').notNull().default(0),
+  rateLimitRemaining: integer('rate_limit_remaining'),
+  rateLimitResetAt: timestamp('rate_limit_reset_at', { withTimezone: true }),
+  error: text('error'),
+  ...timestamps,
+});
+
 export type Category = typeof category.$inferSelect;
 export type Repository = typeof repository.$inferSelect;
 export type NewRepository = typeof repository.$inferInsert;
@@ -190,3 +213,4 @@ export type IntegrationIdea = typeof integrationIdea.$inferSelect;
 export type NewIntegrationIdea = typeof integrationIdea.$inferInsert;
 export type Embedding = typeof embedding.$inferSelect;
 export type NewEmbedding = typeof embedding.$inferInsert;
+export type SyncRun = typeof syncRun.$inferSelect;
