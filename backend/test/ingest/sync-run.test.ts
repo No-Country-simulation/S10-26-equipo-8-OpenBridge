@@ -37,7 +37,7 @@ function githubEcho() {
         forkCount: 0,
         issues: { totalCount: 0 },
         closedIssues: { totalCount: 0 },
-        mentionableUsers: { nodes: [] },
+        pullRequests: { nodes: [] },
         isArchived: false,
         repositoryTopics: { nodes: [] },
         licenseInfo: null,

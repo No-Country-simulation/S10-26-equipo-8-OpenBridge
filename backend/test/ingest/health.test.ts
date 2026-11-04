@@ -15,7 +15,7 @@ const healthyInput: HealthScoreInput = {
   lastReleaseAt: new Date('2026-10-28T10:00:00Z'),
   activeContributors: 5,
   archived: false,
-  hasMaintainerCommitInPast90Days: true,
+  hasMaintainerMergeInPast90Days: true,
 };
 
 describe('cálculo del puntaje de salud', () => {
@@ -65,9 +65,9 @@ describe('cálculo del puntaje de salud', () => {
     expect(result.healthScore).toBe(100);
   });
 
-  it('devuelve activeMaintainer según commits recientes de una persona mantenedora', () => {
+  it('devuelve activeMaintainer según merges recientes de una persona mantenedora', () => {
     const result = calculateHealthScore(
-      { ...healthyInput, hasMaintainerCommitInPast90Days: false },
+      { ...healthyInput, hasMaintainerMergeInPast90Days: false },
       now,
     );
 
