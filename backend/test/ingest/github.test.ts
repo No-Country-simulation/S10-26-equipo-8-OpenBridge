@@ -234,7 +234,7 @@ describe('fetchRepos', () => {
     Array.from({ length: count }, (_, index) => ({ owner: 'acme', name: `repo-${index}` }));
 
   // Responde un repo por cada alias de la query, con un id derivado del nombre pedido.
-  function githubEcho() {
+  function githubEcho(rateLimit?: Record<string, unknown>) {
     return vi.fn(async (_url: string, init: RequestInit) => {
       const { query } = JSON.parse(String(init.body)) as { query: string };
       const data: Record<string, unknown> = {};
@@ -260,9 +260,12 @@ describe('fetchRepos', () => {
           latestRelease: null,
         };
       }
+      if (rateLimit) data.rateLimit = rateLimit;
       return new Response(JSON.stringify({ data }), { status: 200 });
     });
   }
+
+  const noWait = () => vi.fn<(ms: number) => Promise<void>>(async () => {});
 
   const aliasCount = (call: unknown[]) =>
     [...String((call[1] as RequestInit).body).matchAll(/r\d+: repository/g)].length;
@@ -415,5 +418,161 @@ describe('fetchRepos', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(String((error as Error).message)).not.toContain('secret-token');
+  });
+
+  it('pide el límite de solicitudes y lo informa después de cada lote', async () => {
+    const resetAt = '2026-11-02T12:00:00Z';
+    const fetchMock = githubEcho({ cost: 1, remaining: 4999, resetAt });
+    vi.stubGlobal('fetch', fetchMock);
+    const onBatch = vi.fn();
+
+    await fetchRepos(refs(3), { token: 'test-token', batchSize: 2, onBatch });
+
+    expect(String(fetchMock.mock.calls[0][1].body)).toContain(
+      'rateLimit { cost remaining resetAt }',
+    );
+    expect(onBatch).toHaveBeenCalledTimes(2);
+    expect(onBatch.mock.calls[0][0]).toMatchObject({
+      results: [{ status: 'ok' }, { status: 'ok' }],
+      rateLimit: { cost: 1, remaining: 4999, resetAt: new Date(resetAt) },
+    });
+  });
+
+  it('pausa hasta resetAt cuando el saldo queda por debajo del umbral', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString();
+    vi.stubGlobal('fetch', githubEcho({ cost: 1, remaining: 150, resetAt }));
+    const sleep = noWait();
+
+    await fetchRepos(refs(2), { token: 'test-token', batchSize: 1, sleep });
+
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(sleep.mock.calls[0][0]).toBeGreaterThan(50_000);
+    // Hasta resetAt más un segundo de margen.
+    expect(sleep.mock.calls[0][0]).toBeLessThanOrEqual(61_000);
+  });
+
+  it('ante un error RATE_LIMITED espera al reinicio que informa GitHub y reintenta', async () => {
+    const reset = Math.floor(Date.now() / 1000) + 120;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }],
+          }),
+          { status: 200, headers: { 'x-ratelimit-reset': String(reset) } },
+        ),
+      )
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(result.status).toBe('ok');
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(sleep.mock.calls[0][0]).toBeGreaterThan(110_000);
+    expect(sleep.mock.calls[0][0]).toBeLessThanOrEqual(121_000);
+  });
+
+  it('ante un 429 respeta Retry-After y reintenta', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '30' } }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(result.status).toBe('ok');
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([30_000]);
+  });
+
+  it('reintenta una respuesta cortada que no se puede leer', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"data": {"r0"', { status: 200 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep: noWait() });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('ok');
+  });
+
+  it('acepta un umbral configurable y no pausa con saldo suficiente', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString();
+    vi.stubGlobal('fetch', githubEcho({ cost: 1, remaining: 150, resetAt }));
+    const sleep = noWait();
+
+    await fetchRepos(refs(2), {
+      token: 'test-token',
+      batchSize: 1,
+      rateLimitThreshold: 100,
+      sleep,
+    });
+
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('reintenta errores 5xx con esperas que se duplican', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 502 }))
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([1000, 2000]);
+    expect(result.status).toBe('ok');
+  });
+
+  it('reintenta errores de red', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep: noWait() });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('ok');
+  });
+
+  it('tras 3 intentos fallidos marca el lote como fallido y sigue con el siguiente', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await fetchRepos(refs(3), {
+      token: 'test-token',
+      batchSize: 2,
+      sleep: noWait(),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(results.map(({ status }) => status)).toEqual(['error', 'error', 'ok']);
+    expect(results[0]).toMatchObject({ error: 'GitHub respondió 500' });
+  });
+
+  it('no reintenta errores 4xx: corta la ejecución', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchRepos(refs(1), { token: 'test-token', sleep: noWait() })).rejects.toThrow(
+      'GitHub respondió 401',
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

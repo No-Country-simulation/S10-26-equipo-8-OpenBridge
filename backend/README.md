@@ -1,9 +1,9 @@
 # Carga inicial del catálogo (OB-17)
 
-La carga importa los repositorios de `docs/testing/Repositorios.yaml`, consulta
+La carga importa los repositorios de `seed/repos.yaml`, consulta
 sus métricas actuales en GitHub y guarda cada repositorio con su puntaje de
-salud y categoría. La lista tiene 153 repositorios únicos; el proceso debe
-cargar al menos el 98 % (150 repositorios) para considerarse exitoso.
+salud y categoría. La lista tiene 136 repositorios únicos; el proceso debe
+cargar al menos el 98 % (134 repositorios) para considerarse exitoso.
 
 ## Requisitos
 

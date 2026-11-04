@@ -16,12 +16,12 @@ const fixture = (owner: string, name: string, category = 'auth'): InitialReposit
 describe('carga inicial del inventario', () => {
   it('lee la lista inicial real y normaliza la categoría de autenticación', async () => {
     const source = await readFile(
-      new URL('../../../docs/testing/Repositorios.yaml', import.meta.url),
+      new URL('../../../seed/repos.yaml', import.meta.url),
       'utf8',
     );
     const repositories = parseInitialInventory(source);
 
-    expect(repositories).toHaveLength(153);
+    expect(repositories).toHaveLength(136);
     expect(repositories[0]).toMatchObject({
       owner: 'keycloak',
       name: 'keycloak',
