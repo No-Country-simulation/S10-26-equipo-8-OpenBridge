@@ -7,18 +7,35 @@ import {
   type InitialRepository,
 } from '../../src/ingest/initial-load.js';
 
+<<<<<<< HEAD
 const fixture = (owner: string, name: string, category = 'auth'): InitialRepository => ({
   owner,
   name,
   categories: [category],
+=======
+const fixture = (
+  owner: string,
+  name: string,
+  category = 'auth',
+  license = 'MIT',
+): InitialRepository => ({
+  owner,
+  name,
+  categories: [category],
+  license,
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 });
 
 describe('carga inicial del inventario', () => {
   it('lee la lista inicial real y normaliza la categoría de autenticación', async () => {
+<<<<<<< HEAD
     const source = await readFile(
       new URL('../../../seed/repos.yaml', import.meta.url),
       'utf8',
     );
+=======
+    const source = await readFile(new URL('../../../seed/repos.yaml', import.meta.url), 'utf8');
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
     const repositories = parseInitialInventory(source);
 
     expect(repositories).toHaveLength(136);
@@ -26,6 +43,10 @@ describe('carga inicial del inventario', () => {
       owner: 'keycloak',
       name: 'keycloak',
       categories: ['auth'],
+<<<<<<< HEAD
+=======
+      license: 'Apache-2.0',
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
     });
     expect(
       repositories.find(
@@ -36,6 +57,7 @@ describe('carga inicial del inventario', () => {
   });
 
   it('rechaza identificadores inválidos y combina categorías de repositorios repetidos', () => {
+<<<<<<< HEAD
     expect(() => parseInitialInventory('repositories: [{ repo: invalid, category: ai }]')).toThrow(
       /Identificador inválido/,
     );
@@ -47,6 +69,48 @@ describe('carga inicial del inventario', () => {
     ]);
   });
 
+=======
+    expect(() =>
+      parseInitialInventory('repositories: [{ repo: invalid, categories: [ai], license: MIT }]'),
+    ).toThrow(/Identificador inválido/);
+    const repositories = parseInitialInventory(
+      'repositories:\n  - repo: acme/tool\n    categories: [database]\n    license: MIT\n  - repo: ACME/TOOL\n    categories: [analytics]\n    license: MIT\n',
+    );
+    expect(repositories).toEqual([
+      { owner: 'acme', name: 'tool', categories: ['database', 'analytics'], license: 'MIT' },
+    ]);
+  });
+
+  it('usa la licencia del inventario cuando GitHub devuelve NOASSERTION', async () => {
+    const repositories = [fixture('acme', 'tool', 'database', 'Apache-2.0')];
+    const persistRepository = vi.fn().mockResolvedValue(undefined);
+    const report = await loadInitialInventory(repositories, {
+      fetchBatch: vi.fn(async (batch: RepoRef[]) =>
+        batch.map((request): FetchRepoResult => ({
+          request,
+          status: 'ok',
+          renamed: false,
+          repository: {
+            githubId: 1,
+            fullName: 'acme/tool',
+            name: 'tool',
+            url: 'https://github.com/acme/tool',
+            licenseSpdx: 'NOASSERTION',
+          },
+        })),
+      ),
+      persistRepository,
+      categoryIds: new Map([['database', 'category-database']]),
+    });
+
+    expect(report.loaded).toBe(1);
+    expect(persistRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ licenseSpdx: 'Apache-2.0' }),
+      ['category-database'],
+    );
+  });
+
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
   it('divide lotes fallidos y reporta solo los repositorios que siguen fallando', async () => {
     const repositories = [
       fixture('acme', 'one'),
@@ -66,7 +130,14 @@ describe('carga inicial del inventario', () => {
         status: 'ok',
         renamed: false,
         repository: {
+<<<<<<< HEAD
           githubId: repositories.indexOf(repository) + 1,
+=======
+          githubId:
+            repositories.findIndex(
+              ({ owner, name }) => owner === repository.owner && name === repository.name,
+            ) + 1,
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
           fullName: `${repository.owner}/${repository.name}`,
           name: repository.name,
           url: `https://github.com/${repository.owner}/${repository.name}`,

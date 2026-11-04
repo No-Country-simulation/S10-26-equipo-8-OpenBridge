@@ -2,8 +2,19 @@
 
 La carga importa los repositorios de `seed/repos.yaml`, consulta
 sus métricas actuales en GitHub y guarda cada repositorio con su puntaje de
+<<<<<<< HEAD
 salud y categoría. La lista tiene 136 repositorios únicos; el proceso debe
 cargar al menos el 98 % (134 repositorios) para considerarse exitoso.
+=======
+salud y categoría. La lista tiene 136 repositorios; el proceso debe cargar al
+menos el 98 % (134 repositorios) para considerarse exitoso.
+La licencia SPDX se toma del campo `license` del YAML, que prevalece sobre la
+licencia detectada por GitHub.
+El indicador `active_maintainer` se infiere a partir de PRs mergeados en los
+últimos 90 días. Los proyectos que gestionan su actividad fuera de PRs (por
+ejemplo, Postgres mediante listas de correo) aparecerán como `false` aunque
+sigan activos.
+>>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 
 ## Requisitos
 
