@@ -10,3 +10,4 @@ next-env.d.ts
 
 # Generados por drizzle-kit
 **/drizzle/meta/
+**/reports/

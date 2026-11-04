@@ -17,8 +17,8 @@ export function HeaderSearch() {
       const target = e.target as HTMLElement;
       const typing = target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
       if (e.key !== '/' || typing || e.metaKey || e.ctrlKey || e.altKey) return;
-      // El buscador del hero ya atiende el atajo en el home.
-      if (document.querySelector('main [role="combobox"]')) return;
+      // El buscador del hero o del catálogo ya atiende el atajo en su vista.
+      if (document.querySelector('main input[type="search"]')) return;
       e.preventDefault();
       inputRef.current?.focus();
     }

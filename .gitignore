@@ -4,6 +4,7 @@ build/
 .next/
 out/
 coverage/
+/backend/reports/
 
 .env
 .env.*

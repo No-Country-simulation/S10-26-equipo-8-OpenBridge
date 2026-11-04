@@ -25,7 +25,9 @@ interface GithubRepository {
   forkCount: number;
   issues: { totalCount: number };
   closedIssues: { totalCount: number };
-  mentionableUsers: { nodes: Array<{ login: string }> };
+  pullRequests: {
+    nodes: Array<{ mergedAt: string; mergedBy: { login: string } | null }>;
+  };
   isArchived: boolean;
   repositoryTopics: { nodes: Array<{ topic: { name: string } }> };
   licenseInfo: { spdxId: string | null } | null;
@@ -42,8 +44,21 @@ interface GithubRepository {
 }
 
 interface GraphQLResponse {
-  data?: Record<string, GithubRepository | null>;
+  data?: Record<string, unknown>;
   errors?: GraphQLError[];
+}
+
+// Lo que informa GitHub en cada query: cuántos puntos costó, cuántos quedan
+// y cuándo se renueva el saldo.
+export interface RateLimit {
+  cost: number;
+  remaining: number;
+  resetAt: Date;
+}
+
+export interface Batch<T> {
+  results: T[];
+  rateLimit: RateLimit | null;
 }
 
 export type FetchRepoResult =
@@ -65,11 +80,51 @@ export interface GithubClientOptions {
   token?: string;
   // Repos por query (uno por alias). GitHub limita el costo de cada query.
   batchSize?: number;
+  // Si el saldo del límite baja de este número, se espera a resetAt antes
+  // del próximo lote.
+  rateLimitThreshold?: number;
+  // Espera antes del primer reintento; se duplica en cada intento.
+  retryDelayMs?: number;
+  // Se llama al terminar cada lote, para guardar el avance sobre la marcha.
+  onBatch?: (batch: Batch<FetchRepoResult>) => Promise<void> | void;
+  // Inyectable para no esperar de verdad en los tests.
+  sleep?: (ms: number) => Promise<void>;
 }
 
 const GITHUB_GRAPHQL = 'https://api.github.com/graphql';
 const DEFAULT_BATCH_SIZE = 50;
 const MAX_BATCH_SIZE = 100;
+const DEFAULT_RATE_LIMIT_THRESHOLD = 200;
+const DEFAULT_RETRY_DELAY_MS = 1000;
+const MAX_ATTEMPTS = 3;
+
+// Margen después de resetAt por si nuestro reloj y el de GitHub no coinciden.
+const RESET_MARGIN_MS = 1000;
+// Si GitHub limita sin decir hasta cuándo.
+const RATE_LIMIT_FALLBACK_WAIT_MS = 60_000;
+
+// Error transitorio de GitHub (5xx o de red): vale la pena reintentar.
+class RetryableError extends Error {}
+
+// GitHub limitó las solicitudes: se reintenta después de waitMs.
+class RateLimitedError extends RetryableError {
+  readonly waitMs: number;
+
+  constructor(message: string, waitMs: number) {
+    super(message);
+    this.waitMs = waitMs;
+  }
+}
+
+function rateLimitWait(headers: Headers): number {
+  const retryAfter = Number(headers.get('retry-after'));
+  if (retryAfter > 0) return retryAfter * 1000;
+  const reset = Number(headers.get('x-ratelimit-reset'));
+  if (reset > 0) return Math.max(0, reset * 1000 - Date.now()) + RESET_MARGIN_MS;
+  return RATE_LIMIT_FALLBACK_WAIT_MS;
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function readGithubToken(): string {
   const token = process.env.GITHUB_TOKEN?.trim();
@@ -101,7 +156,7 @@ function buildQuery(repos: RepoRef[], now: Date): string {
     forkCount
     issues(states: OPEN) { totalCount }
     closedIssues: issues(states: CLOSED) { totalCount }
-    mentionableUsers(first: 100) { nodes { login } }
+    pullRequests(states: MERGED, last: 20) { nodes { mergedAt mergedBy { login } } }
     isArchived
     repositoryTopics(first: 100) { nodes { topic { name } } }
     licenseInfo { spdxId }
@@ -121,7 +176,7 @@ function buildQuery(repos: RepoRef[], now: Date): string {
     )
     .join('\n');
 
-  return `query {${fields}\n}`;
+  return `query {${fields}\n  rateLimit { cost remaining resetAt }\n}`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -144,10 +199,14 @@ function isGithubRepository(value: unknown): value is GithubRepository {
     typeof value.issues.totalCount === 'number' &&
     isRecord(value.closedIssues) &&
     typeof value.closedIssues.totalCount === 'number' &&
-    isRecord(value.mentionableUsers) &&
-    Array.isArray(value.mentionableUsers.nodes) &&
-    value.mentionableUsers.nodes.every(
-      (user) => isRecord(user) && typeof user.login === 'string',
+    isRecord(value.pullRequests) &&
+    Array.isArray(value.pullRequests.nodes) &&
+    value.pullRequests.nodes.every(
+      (pullRequest) =>
+        isRecord(pullRequest) &&
+        typeof pullRequest.mergedAt === 'string' &&
+        (pullRequest.mergedBy === null ||
+          (isRecord(pullRequest.mergedBy) && typeof pullRequest.mergedBy.login === 'string')),
     ) &&
     typeof value.isArchived === 'boolean' &&
     isRecord(value.repositoryTopics) &&
@@ -167,7 +226,21 @@ function isGraphQLResponse(value: unknown): value is GraphQLResponse {
   return value.data !== undefined || value.errors !== undefined;
 }
 
-function errorMessage(error: unknown): string {
+function parseRateLimit(value: unknown): RateLimit | null {
+  if (
+    !isRecord(value) ||
+    typeof value.cost !== 'number' ||
+    typeof value.remaining !== 'number' ||
+    typeof value.resetAt !== 'string'
+  ) {
+    return null;
+  }
+  const resetAt = new Date(value.resetAt);
+  if (Number.isNaN(resetAt.getTime())) return null;
+  return { cost: value.cost, remaining: value.remaining, resetAt };
+}
+
+export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -179,19 +252,17 @@ function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
   const lastReleaseAt = node.latestRelease?.publishedAt
     ? new Date(node.latestRelease.publishedAt)
     : null;
+  const archived = node.isArchived;
+  const nowMs = now.getTime();
+  const maintainerCutoffMs = getRecentCommitCutoff(now).getTime();
+  const hasMaintainerMergeInPast90Days = node.pullRequests.nodes.some(({ mergedAt }) => {
+    const mergedAtMs = Date.parse(mergedAt);
+    return Number.isFinite(mergedAtMs) && mergedAtMs >= maintainerCutoffMs && mergedAtMs <= nowMs;
+  });
   const activeContributorLogins = new Set(
     (recentCommits?.nodes ?? [])
       .map((commit) => commit.author?.user?.login)
       .filter((login): login is string => typeof login === 'string'),
-  );
-  const owner = node.nameWithOwner.slice(0, node.nameWithOwner.indexOf('/'));
-  const archived = node.isArchived;
-  const mentionableLogins = new Set(
-    node.mentionableUsers.nodes.map(({ login }) => login.toLowerCase()),
-  );
-  const hasMaintainerCommitInPast90Days = [...activeContributorLogins].some(
-    (login) =>
-      login.toLowerCase() === owner.toLowerCase() || mentionableLogins.has(login.toLowerCase()),
   );
   const { healthScore, maintenanceLevel, activeMaintainer } = calculateHealthScore(
     {
@@ -203,7 +274,7 @@ function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
       lastReleaseAt,
       activeContributors: activeContributorLogins.size,
       archived,
-      hasMaintainerCommitInPast90Days,
+      hasMaintainerMergeInPast90Days,
     },
     now,
   );
@@ -230,19 +301,91 @@ function mapRepository(node: GithubRepository, now: Date): RepositoryInput {
   };
 }
 
-async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRepoResult[]> {
-  const now = new Date();
-  const response = await fetch(GITHUB_GRAPHQL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query: buildQuery(repos, now) }),
-  });
+async function requestGithub(query: string, token: string): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetch(GITHUB_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+  } catch (error) {
+    throw new RetryableError(`No se pudo conectar con GitHub: ${errorMessage(error)}`);
+  }
+  if (response.status >= 500) throw new RetryableError(`GitHub respondió ${response.status}`);
+  // Límite secundario (demasiadas solicitudes seguidas) o primario agotado.
+  if (
+    response.status === 429 ||
+    (response.status === 403 &&
+      (response.headers.has('retry-after') ||
+        response.headers.get('x-ratelimit-remaining') === '0'))
+  ) {
+    throw new RateLimitedError(
+      `GitHub limitó las solicitudes (${response.status})`,
+      rateLimitWait(response.headers),
+    );
+  }
+  // Cualquier otro 4xx (token inválido, sin permisos) no se arregla reintentando: corta todo.
   if (!response.ok) throw new Error(`GitHub respondió ${response.status}`);
 
-  const payload: unknown = await response.json();
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    // Respuesta cortada a mitad de camino: es un error de red más.
+    throw new RetryableError(`GitHub devolvió una respuesta ilegible: ${errorMessage(error)}`);
+  }
+  // Con el límite agotado, GraphQL responde 200 con un error RATE_LIMITED.
+  if (
+    isRecord(payload) &&
+    Array.isArray(payload.errors) &&
+    payload.errors.some(
+      (error) =>
+        isRecord(error) &&
+        (error.type === 'RATE_LIMITED' ||
+          (isRecord(error.extensions) && error.extensions.type === 'RATE_LIMITED')),
+    )
+  ) {
+    throw new RateLimitedError(
+      'GitHub agotó el límite de solicitudes',
+      rateLimitWait(response.headers),
+    );
+  }
+  return payload;
+}
+
+type RetryOptions = { retryDelayMs: number; sleep: (ms: number) => Promise<void> };
+
+async function fetchRepoBatch(
+  repos: RepoRef[],
+  token: string,
+  { retryDelayMs, sleep }: RetryOptions,
+): Promise<Batch<FetchRepoResult>> {
+  const now = new Date();
+  const query = buildQuery(repos, now);
+
+  let payload: unknown;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      payload = await requestGithub(query, token);
+      break;
+    } catch (error) {
+      if (!(error instanceof RetryableError)) throw error;
+      if (attempt === MAX_ATTEMPTS) {
+        return {
+          results: repos.map((request) => ({ request, status: 'error', error: error.message })),
+          rateLimit: null,
+        };
+      }
+      await sleep(
+        error instanceof RateLimitedError ? error.waitMs : retryDelayMs * 2 ** (attempt - 1),
+      );
+    }
+  }
+
   if (!isGraphQLResponse(payload)) {
     throw new Error('GitHub devolvió una respuesta GraphQL inválida');
   }
@@ -257,7 +400,7 @@ async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRep
     errorsByAlias.get(alias)?.push(error);
   }
 
-  return repos.map((request, index) => {
+  const results = repos.map((request, index): FetchRepoResult => {
     const alias = `r${index}`;
     const aliasErrors = errorsByAlias.get(alias) ?? [];
     const notFound = aliasErrors.some(
@@ -291,12 +434,22 @@ async function fetchRepoBatch(repos: RepoRef[], token: string): Promise<FetchRep
       repository: mapRepository(node, now),
     };
   });
+
+  return { results, rateLimit: parseRateLimit(payload.data?.rateLimit) };
 }
 
-// Trae los repos en lotes secuenciales: una query GraphQL por lote.
+// Trae los repos en lotes secuenciales: una query GraphQL por lote. Si el
+// saldo del límite queda bajo, espera a que GitHub lo renueve antes de seguir.
 export async function fetchRepos(
   repos: RepoRef[],
-  { token, batchSize = DEFAULT_BATCH_SIZE }: GithubClientOptions = {},
+  {
+    token,
+    batchSize = DEFAULT_BATCH_SIZE,
+    rateLimitThreshold = DEFAULT_RATE_LIMIT_THRESHOLD,
+    retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+    onBatch,
+    sleep = wait,
+  }: GithubClientOptions = {},
 ): Promise<FetchRepoResult[]> {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
     throw new Error(`batchSize debe ser un entero entre 1 y ${MAX_BATCH_SIZE}`);
@@ -305,35 +458,60 @@ export async function fetchRepos(
 
   const resolvedToken = token ?? readGithubToken();
   const results: FetchRepoResult[] = [];
+  let rateLimit: RateLimit | null = null;
   for (const batch of chunk(repos, batchSize)) {
-    results.push(...(await fetchRepoBatch(batch, resolvedToken)));
+    if (rateLimit && rateLimit.remaining < rateLimitThreshold) {
+      await sleep(Math.max(0, rateLimit.resetAt.getTime() - Date.now()) + RESET_MARGIN_MS);
+    }
+    const fetched = await fetchRepoBatch(batch, resolvedToken, { retryDelayMs, sleep });
+    // Un lote fallido no informa saldo: se conserva el último conocido.
+    rateLimit = fetched.rateLimit ?? rateLimit;
+    results.push(...fetched.results);
+    await onBatch?.(fetched);
   }
   return results;
 }
 
-// categoryIds reemplaza las categorías de cada repo guardado; si no se pasa,
-// se conservan las que ya tenía (ver upsertRepository).
+export type SyncReposOptions = Omit<GithubClientOptions, 'onBatch'> & {
+  categoryIds?: string[];
+  onBatch?: (batch: Batch<SyncRepoResult>) => Promise<void> | void;
+};
+
+// Guarda cada lote apenas llega, así lo ya traído no se pierde si el proceso
+// se corta. categoryIds reemplaza las categorías de cada repo guardado; si no
+// se pasa, se conservan las que ya tenía (ver upsertRepository).
 export async function syncRepos(
   db: Db,
   repos: RepoRef[],
-  { categoryIds, ...options }: GithubClientOptions & { categoryIds?: string[] } = {},
+  { categoryIds, onBatch, ...options }: SyncReposOptions = {},
 ): Promise<SyncRepoResult[]> {
-  const fetched = await fetchRepos(repos, options);
   const results: SyncRepoResult[] = [];
 
-  for (const result of fetched) {
-    if (result.status !== 'ok') {
-      results.push(result);
-      continue;
-    }
+  await fetchRepos(repos, {
+    ...options,
+    onBatch: async ({ results: fetched, rateLimit }) => {
+      const synced: SyncRepoResult[] = [];
+      for (const result of fetched) {
+        if (result.status !== 'ok') {
+          synced.push(result);
+          continue;
+        }
 
-    try {
-      const saved = await upsertRepository(db, result.repository, categoryIds);
-      results.push({ ...result, savedId: saved.id });
-    } catch (error) {
-      results.push({ request: result.request, status: 'error', error: errorMessage(error) });
-    }
-  }
+        try {
+          const saved = await upsertRepository(
+            db,
+            { ...result.repository, lastSyncedAt: new Date() },
+            categoryIds,
+          );
+          synced.push({ ...result, savedId: saved.id });
+        } catch (error) {
+          synced.push({ request: result.request, status: 'error', error: errorMessage(error) });
+        }
+      }
+      results.push(...synced);
+      await onBatch?.({ results: synced, rateLimit });
+    },
+  });
 
   return results;
 }

@@ -5,6 +5,44 @@ import { category, repository, repositoryCategory } from '../../src/db/schema.js
 import { fetchRepos, syncRepos, type RepoRef } from '../../src/ingest/github.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
 
+const githubRepo = (overrides: Record<string, unknown> = {}) => ({
+  databaseId: 42,
+  nameWithOwner: 'vercel/next.js',
+  url: 'https://github.com/vercel/next.js',
+  description: 'The React framework',
+  homepageUrl: 'https://nextjs.org',
+  primaryLanguage: { name: 'JavaScript' },
+  stargazerCount: 100000,
+  forkCount: 20000,
+  issues: { totalCount: 500 },
+  closedIssues: { totalCount: 1000 },
+  pullRequests: {
+    nodes: [
+      {
+        mergedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        mergedBy: { login: 'org-maintainer' },
+      },
+    ],
+  },
+  isArchived: false,
+  repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
+  licenseInfo: { spdxId: 'MIT' },
+  defaultBranchRef: {
+    target: {
+      committedDate: '2026-10-25T10:00:00Z',
+      history: {
+        totalCount: 2,
+        nodes: [
+          { author: { user: { login: 'vercel' } } },
+          { author: { user: { login: 'contributor' } } },
+        ],
+      },
+    },
+  },
+  latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
+  ...overrides,
+});
+
 describe('cliente GraphQL de GitHub', () => {
   let t: TestDb;
   let categoryId: string;
@@ -24,37 +62,6 @@ describe('cliente GraphQL de GitHub', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-  });
-
-  const githubRepo = (overrides: Record<string, unknown> = {}) => ({
-    databaseId: 42,
-    nameWithOwner: 'vercel/next.js',
-    url: 'https://github.com/vercel/next.js',
-    description: 'The React framework',
-    homepageUrl: 'https://nextjs.org',
-    primaryLanguage: { name: 'JavaScript' },
-    stargazerCount: 100000,
-    forkCount: 20000,
-    issues: { totalCount: 500 },
-    closedIssues: { totalCount: 1000 },
-    mentionableUsers: { nodes: [{ login: 'vercel' }, { login: 'org-maintainer' }] },
-    isArchived: false,
-    repositoryTopics: { nodes: [{ topic: { name: 'react' } }] },
-    licenseInfo: { spdxId: 'MIT' },
-    defaultBranchRef: {
-      target: {
-        committedDate: '2026-10-25T10:00:00Z',
-        history: {
-          totalCount: 2,
-          nodes: [
-            { author: { user: { login: 'vercel' } } },
-            { author: { user: { login: 'contributor' } } },
-          ],
-        },
-      },
-    },
-    latestRelease: { publishedAt: '2026-10-20T10:00:00Z' },
-    ...overrides,
   });
 
   it('usa el endpoint GraphQL y deja continuar el lote ante errores por alias', async () => {
@@ -83,6 +90,10 @@ describe('cliente GraphQL de GitHub', () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.query).toContain('repository(owner: "owner\\"quoted", name: "absent")');
+    expect(body.query).toContain(
+      'pullRequests(states: MERGED, last: 20) { nodes { mergedAt mergedBy { login } } }',
+    );
+    expect(body.query).not.toContain('mentionableUsers');
     expect(results.map(({ status }) => status)).toEqual(['not_found', 'ok']);
   });
 
@@ -223,7 +234,7 @@ describe('fetchRepos', () => {
     Array.from({ length: count }, (_, index) => ({ owner: 'acme', name: `repo-${index}` }));
 
   // Responde un repo por cada alias de la query, con un id derivado del nombre pedido.
-  function githubEcho() {
+  function githubEcho(rateLimit?: Record<string, unknown>) {
     return vi.fn(async (_url: string, init: RequestInit) => {
       const { query } = JSON.parse(String(init.body)) as { query: string };
       const data: Record<string, unknown> = {};
@@ -241,7 +252,7 @@ describe('fetchRepos', () => {
           forkCount: 0,
           issues: { totalCount: 0 },
           closedIssues: { totalCount: 0 },
-          mentionableUsers: { nodes: [] },
+          pullRequests: { nodes: [] },
           isArchived: false,
           repositoryTopics: { nodes: [] },
           licenseInfo: null,
@@ -249,9 +260,12 @@ describe('fetchRepos', () => {
           latestRelease: null,
         };
       }
+      if (rateLimit) data.rateLimit = rateLimit;
       return new Response(JSON.stringify({ data }), { status: 200 });
     });
   }
+
+  const noWait = () => vi.fn<(ms: number) => Promise<void>>(async () => {});
 
   const aliasCount = (call: unknown[]) =>
     [...String((call[1] as RequestInit).body).matchAll(/r\d+: repository/g)].length;
@@ -277,7 +291,7 @@ describe('fetchRepos', () => {
     expect(fetchMock.mock.calls.map(aliasCount)).toEqual([25, 25, 25, 25]);
   });
 
-  it('detecta commits recientes de una persona mencionable en repos de organizaciones', async () => {
+  it('detecta un merge reciente de un mantenedor en un repo de organización', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -293,7 +307,14 @@ describe('fetchRepos', () => {
               forkCount: 0,
               issues: { totalCount: 0 },
               closedIssues: { totalCount: 0 },
-              mentionableUsers: { nodes: [{ login: 'maintainer' }] },
+              pullRequests: {
+                nodes: [
+                  {
+                    mergedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                    mergedBy: { login: 'maintainer' },
+                  },
+                ],
+              },
               isArchived: false,
               repositoryTopics: { nodes: [] },
               licenseInfo: null,
@@ -321,6 +342,45 @@ describe('fetchRepos', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') expect(result.repository.activeMaintainer).toBe(true);
+  });
+
+  it('no considera mantenedor activo a quien solo tiene commits recientes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            r0: githubRepo({
+              pullRequests: {
+                nodes: [
+                  {
+                    mergedAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+                    mergedBy: { login: 'maintainer' },
+                  },
+                ],
+              },
+              defaultBranchRef: {
+                target: {
+                  committedDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+                  history: {
+                    totalCount: 1,
+                    nodes: [{ author: { user: { login: 'contributor' } } }],
+                  },
+                },
+              },
+            }),
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos([{ owner: 'acme', name: 'tool' }], {
+      token: 'test-token',
+    });
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.repository.activeMaintainer).toBe(false);
   });
 
   it.each([0, -1, 1.5, 101])('rechaza un tamaño de lote inválido (%s)', async (batchSize) => {
@@ -358,5 +418,161 @@ describe('fetchRepos', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(String((error as Error).message)).not.toContain('secret-token');
+  });
+
+  it('pide el límite de solicitudes y lo informa después de cada lote', async () => {
+    const resetAt = '2026-11-02T12:00:00Z';
+    const fetchMock = githubEcho({ cost: 1, remaining: 4999, resetAt });
+    vi.stubGlobal('fetch', fetchMock);
+    const onBatch = vi.fn();
+
+    await fetchRepos(refs(3), { token: 'test-token', batchSize: 2, onBatch });
+
+    expect(String(fetchMock.mock.calls[0][1].body)).toContain(
+      'rateLimit { cost remaining resetAt }',
+    );
+    expect(onBatch).toHaveBeenCalledTimes(2);
+    expect(onBatch.mock.calls[0][0]).toMatchObject({
+      results: [{ status: 'ok' }, { status: 'ok' }],
+      rateLimit: { cost: 1, remaining: 4999, resetAt: new Date(resetAt) },
+    });
+  });
+
+  it('pausa hasta resetAt cuando el saldo queda por debajo del umbral', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString();
+    vi.stubGlobal('fetch', githubEcho({ cost: 1, remaining: 150, resetAt }));
+    const sleep = noWait();
+
+    await fetchRepos(refs(2), { token: 'test-token', batchSize: 1, sleep });
+
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(sleep.mock.calls[0][0]).toBeGreaterThan(50_000);
+    // Hasta resetAt más un segundo de margen.
+    expect(sleep.mock.calls[0][0]).toBeLessThanOrEqual(61_000);
+  });
+
+  it('ante un error RATE_LIMITED espera al reinicio que informa GitHub y reintenta', async () => {
+    const reset = Math.floor(Date.now() / 1000) + 120;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded' }],
+          }),
+          { status: 200, headers: { 'x-ratelimit-reset': String(reset) } },
+        ),
+      )
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(result.status).toBe('ok');
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(sleep.mock.calls[0][0]).toBeGreaterThan(110_000);
+    expect(sleep.mock.calls[0][0]).toBeLessThanOrEqual(121_000);
+  });
+
+  it('ante un 429 respeta Retry-After y reintenta', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '30' } }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(result.status).toBe('ok');
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([30_000]);
+  });
+
+  it('reintenta una respuesta cortada que no se puede leer', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('{"data": {"r0"', { status: 200 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep: noWait() });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('ok');
+  });
+
+  it('acepta un umbral configurable y no pausa con saldo suficiente', async () => {
+    const resetAt = new Date(Date.now() + 60_000).toISOString();
+    vi.stubGlobal('fetch', githubEcho({ cost: 1, remaining: 150, resetAt }));
+    const sleep = noWait();
+
+    await fetchRepos(refs(2), {
+      token: 'test-token',
+      batchSize: 1,
+      rateLimitThreshold: 100,
+      sleep,
+    });
+
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('reintenta errores 5xx con esperas que se duplican', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 502 }))
+      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+    const sleep = noWait();
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls.map(([ms]) => ms)).toEqual([1000, 2000]);
+    expect(result.status).toBe('ok');
+  });
+
+  it('reintenta errores de red', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [result] = await fetchRepos(refs(1), { token: 'test-token', sleep: noWait() });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe('ok');
+  });
+
+  it('tras 3 intentos fallidos marca el lote como fallido y sigue con el siguiente', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockResolvedValueOnce(new Response('', { status: 500 }))
+      .mockImplementation(githubEcho());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const results = await fetchRepos(refs(3), {
+      token: 'test-token',
+      batchSize: 2,
+      sleep: noWait(),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(results.map(({ status }) => status)).toEqual(['error', 'error', 'ok']);
+    expect(results[0]).toMatchObject({ error: 'GitHub respondió 500' });
+  });
+
+  it('no reintenta errores 4xx: corta la ejecución', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 401 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchRepos(refs(1), { token: 'test-token', sleep: noWait() })).rejects.toThrow(
+      'GitHub respondió 401',
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
