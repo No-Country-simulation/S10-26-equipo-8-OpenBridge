@@ -101,7 +101,27 @@ async function fetchBatchWithFallback(
   fetchBatch: InitialLoadDependencies['fetchBatch'],
 ): Promise<BatchFetchResult> {
   try {
-    return { results: await fetchBatch(batch), failures: [] };
+    const results = await fetchBatch(batch);
+    // fetchRepos no lanza ante un 502: marca cada repo del lote con status 'error'.
+    // Un repo pesado tumba la query entera, así que se reintenta en mitades para aislarlo.
+    const failedKeys = new Set(
+      results
+        .filter(({ status }) => status === 'error')
+        .map(({ request }) => repositoryKey(request)),
+    );
+    if (batch.length === 1 || failedKeys.size === 0) return { results, failures: [] };
+
+    const retried = await splitAndFetch(
+      batch.filter((repository) => failedKeys.has(repositoryKey(repository))),
+      fetchBatch,
+    );
+    return {
+      results: [
+        ...results.filter(({ request }) => !failedKeys.has(repositoryKey(request))),
+        ...retried.results,
+      ],
+      failures: retried.failures,
+    };
   } catch (error) {
     if (batch.length === 1) {
       const [repository] = batch;
@@ -117,20 +137,30 @@ async function fetchBatchWithFallback(
       };
     }
 
-    const midpoint = Math.ceil(batch.length / 2);
-    const left = await fetchBatchWithFallback(batch.slice(0, midpoint), fetchBatch);
-    const right = await fetchBatchWithFallback(batch.slice(midpoint), fetchBatch);
-    return {
-      results: [...left.results, ...right.results],
-      failures: [...left.failures, ...right.failures],
-    };
+    return splitAndFetch(batch, fetchBatch);
   }
+}
+
+async function splitAndFetch(
+  batch: InitialRepository[],
+  fetchBatch: InitialLoadDependencies['fetchBatch'],
+): Promise<BatchFetchResult> {
+  if (batch.length === 1) return fetchBatchWithFallback(batch, fetchBatch);
+
+  const midpoint = Math.ceil(batch.length / 2);
+  const left = await fetchBatchWithFallback(batch.slice(0, midpoint), fetchBatch);
+  const right = await fetchBatchWithFallback(batch.slice(midpoint), fetchBatch);
+  return {
+    results: [...left.results, ...right.results],
+    failures: [...left.failures, ...right.failures],
+  };
 }
 
 export async function loadInitialInventory(
   repositories: InitialRepository[],
   dependencies: InitialLoadDependencies,
-  batchSize = 50,
+  // Con 20 o más repos por query GitHub responde 502 (timeout) para este inventario.
+  batchSize = 10,
 ): Promise<InitialLoadReport> {
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 100) {
     throw new Error('batchSize debe ser un entero entre 1 y 100');
