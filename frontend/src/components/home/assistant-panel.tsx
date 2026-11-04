@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { CategoryDot } from '@/components/category-dot';
+import { CategoryDot } from '@/components/shared/category-dot';
 import { Button } from '@/components/ui/button';
 
 // Campo `description` de POST /assistant/proposals: de 20 a 2.000 caracteres (contrato v1, OB-35).

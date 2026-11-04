@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { CategoryDot } from '@/components/category-dot';
+import { CategoryDot } from '@/components/shared/category-dot';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Category } from '@/lib/categories';
 import { getCategoryStyle } from '@/lib/category-styles';

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { HeroSearch } from '@/components/hero-search';
+import { HeroSearch } from '@/components/home/hero-search';
 import { getCategories } from '@/lib/categories';
 
 const popularSearches = [

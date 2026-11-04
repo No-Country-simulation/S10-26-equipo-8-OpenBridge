@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { Star } from 'lucide-react';
-import { CategoryDot } from '@/components/category-dot';
-import { HealthBadge } from '@/components/health-badge';
-import { LicenseBadge } from '@/components/license-badge';
+import { CategoryDot } from '@/components/shared/category-dot';
+import { HealthBadge } from '@/components/shared/health-badge';
+import { LicenseBadge } from '@/components/shared/license-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatStars, type Repository } from '@/lib/repositories';
 
