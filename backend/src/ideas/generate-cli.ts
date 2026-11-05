@@ -7,8 +7,10 @@ import { createOllamaIdeaModel } from './model.js';
 import { ideasJsonSchema, loadIdeaPrompt } from './prompt.js';
 import { cleanReadme, fetchReadme } from './readme.js';
 
-// npm run db:generate-ideas -- [--repo owner/name] [--limit 10]
+// npm run db:generate-ideas -- [--repo owner/name] [--limit 10] [--prompt v2]
 // Genera borradores para los repos que todavía no tienen ideas del modelo.
+// --prompt elige la versión de backend/prompts/ideas/ (por defecto,
+// IDEA_PROMPT_VERSION en prompt.ts).
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -16,6 +18,7 @@ const { values } = parseArgs({
   options: {
     repo: { type: 'string' },
     limit: { type: 'string' },
+    prompt: { type: 'string' },
   },
 });
 const limit = values.limit === undefined ? undefined : Number(values.limit);
@@ -29,7 +32,7 @@ const token = process.env.GITHUB_TOKEN?.trim();
 if (!token) throw new Error('Falta la variable de entorno GITHUB_TOKEN');
 
 const { db, pool } = createDb(url);
-const prompt = loadIdeaPrompt();
+const prompt = loadIdeaPrompt(values.prompt);
 const model = createOllamaIdeaModel({ format: ideasJsonSchema });
 
 type Entry =
