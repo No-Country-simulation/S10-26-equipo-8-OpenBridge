@@ -2,7 +2,6 @@ import { parse } from 'yaml';
 import type { RepositoryInput } from '../db/repositories.js';
 import type { FetchRepoResult, RepoRef } from './github.js';
 
-<<<<<<< HEAD
 const CATEGORY_ALIASES: Record<string, string> = {
   authentication: 'auth',
   auth: 'auth',
@@ -13,16 +12,11 @@ const CATEGORY_ALIASES: Record<string, string> = {
   search: 'search',
 };
 
-=======
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 const TARGET_SUCCESS_RATE = 0.98;
 
 export interface InitialRepository extends RepoRef {
   categories: string[];
-<<<<<<< HEAD
-=======
   license: string;
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 }
 
 export interface InitialLoadFailure {
@@ -51,11 +45,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizedCategory(category: string): string {
-<<<<<<< HEAD
   return CATEGORY_ALIASES[category.toLowerCase()] ?? category.toLowerCase();
-=======
-  return category.toLowerCase();
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 }
 
 export function parseInitialInventory(source: string): InitialRepository[] {
@@ -77,14 +67,11 @@ export function parseInitialInventory(source: string): InitialRepository[] {
     ) {
       throw new Error(`El repositorio en la posición ${index + 1} debe incluir categorías válidas`);
     }
-<<<<<<< HEAD
-=======
     if (typeof entry.license !== 'string' || !entry.license.trim()) {
       throw new Error(
         `El repositorio en la posición ${index + 1} debe incluir una licencia válida`,
       );
     }
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
 
     const [owner, name, extra] = entry.repo.trim().split('/');
     if (!owner || !name || extra !== undefined) {
@@ -101,11 +88,7 @@ export function parseInitialInventory(source: string): InitialRepository[] {
       return;
     }
 
-<<<<<<< HEAD
-    repositories.set(key, { owner, name, categories });
-=======
     repositories.set(key, { owner, name, categories, license: entry.license.trim() });
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
   });
   return [...repositories.values()];
 }
@@ -218,14 +201,10 @@ export async function loadInitialInventory(
       }
 
       try {
-<<<<<<< HEAD
-        await dependencies.persistRepository(result.repository, categoryIds);
-=======
         await dependencies.persistRepository(
           { ...result.repository, licenseSpdx: repository.license },
           categoryIds,
         );
->>>>>>> 1a58b6242193e6e0b554f0e471c909bf6b4d3fce
         loaded += 1;
       } catch (error) {
         failures.push({ repo, categories: repository.categories, reason: errorMessage(error) });
