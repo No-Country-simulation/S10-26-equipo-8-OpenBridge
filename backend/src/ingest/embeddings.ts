@@ -1,12 +1,30 @@
-import { eq } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, asc, eq, notExists, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
-import { upsertEmbedding } from '../db/embeddings.js';
-import { EMBEDDING_DIMENSIONS, category, repository, repositoryCategory } from '../db/schema.js';
+import { upsertEmbedding, type EmbeddingEntityType } from '../db/embeddings.js';
+import {
+  EMBEDDING_DIMENSIONS,
+  category,
+  embedding,
+  integrationIdea,
+  repository,
+  repositoryCategory,
+} from '../db/schema.js';
 
-const EMBEDDING_MODEL = 'nomic-embed-text';
-const EMBEDDING_BATCH_SIZE = 32;
+const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
+const DEFAULT_BATCH_SIZE = 32;
+const DEFAULT_RETRY_DELAY_MS = 2000;
+// Tope de ideas aprobadas en el perfil de un repo: más diluye su significado.
+const MAX_PROFILE_IDEAS = 5;
 
-type EmbedBatch = (inputs: string[]) => Promise<number[][]>;
+// nomic-embed-text se entrenó con prefijos de tarea: los documentos y las
+// consultas tienen que llevar el suyo para que la similitud funcione bien.
+const DOCUMENT_PREFIX = 'search_document: ';
+const QUERY_PREFIX = 'search_query: ';
+
+export type EmbedBatch = (inputs: string[]) => Promise<number[][]>;
+
+export const embeddingModel = () => process.env.OLLAMA_EMBEDDING_MODEL ?? DEFAULT_EMBEDDING_MODEL;
 
 interface OllamaEmbedResponse {
   embeddings: number[][];
@@ -29,7 +47,7 @@ function isEmbedResponse(value: unknown): value is OllamaEmbedResponse {
 
 export function createOllamaEmbedder({
   baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434',
-  model = process.env.OLLAMA_EMBEDDING_MODEL ?? EMBEDDING_MODEL,
+  model = embeddingModel(),
   request = fetch,
 }: {
   baseUrl?: string;
@@ -69,83 +87,293 @@ export function createOllamaEmbedder({
   };
 }
 
-interface RepositoryEmbedding {
-  id: string;
+// Vector de una consulta del asistente (OB-32), comparable con los guardados.
+export async function embedQuery(
+  text: string,
+  { embedBatch = createOllamaEmbedder() }: { embedBatch?: EmbedBatch } = {},
+): Promise<number[]> {
+  const [vector] = await embedBatch([`${QUERY_PREFIX}${text}`]);
+  return vector;
+}
+
+export interface RepositoryProfile {
   fullName: string;
   description: string | null;
   primaryLanguage: string | null;
-  licenseSpdx: string | null;
-  topics: string[];
   categories: string[];
+  topics: string[];
+  approvedIdeas: { title: string; summary: string }[];
 }
 
-export function repositoryEmbeddingContent(repositoryData: RepositoryEmbedding): string {
+export function repositoryEmbeddingContent(profile: RepositoryProfile): string {
+  const ideas = profile.approvedIdeas.slice(0, MAX_PROFILE_IDEAS);
   return [
-    `Repository: ${repositoryData.fullName}`,
-    repositoryData.description && `Description: ${repositoryData.description}`,
-    repositoryData.primaryLanguage && `Language: ${repositoryData.primaryLanguage}`,
-    repositoryData.licenseSpdx && `License: ${repositoryData.licenseSpdx}`,
-    repositoryData.categories.length > 0 && `Categories: ${repositoryData.categories.join(', ')}`,
-    repositoryData.topics.length > 0 && `Topics: ${repositoryData.topics.join(', ')}`,
+    `Repository: ${profile.fullName}`,
+    profile.description && `Description: ${profile.description}`,
+    profile.primaryLanguage && `Language: ${profile.primaryLanguage}`,
+    profile.categories.length > 0 && `Categories: ${profile.categories.join(', ')}`,
+    profile.topics.length > 0 && `Topics: ${profile.topics.join(', ')}`,
+    ideas.length > 0 && 'Integration ideas:',
+    ...ideas.map(({ title, summary }) => `- ${title}: ${summary}`),
   ]
     .filter((line): line is string => Boolean(line))
     .join('\n');
 }
 
-export async function generateRepositoryEmbeddings(
-  db: Db,
-  embedBatch: EmbedBatch = createOllamaEmbedder(),
-): Promise<number> {
-  const rows = await db
+export function ideaEmbeddingContent(idea: {
+  title: string;
+  summary: string;
+  integrationType: string;
+  repositoryFullName: string;
+}): string {
+  return [
+    `Integration idea: ${idea.title}`,
+    `Repository: ${idea.repositoryFullName}`,
+    `Integration type: ${idea.integrationType}`,
+    `Summary: ${idea.summary}`,
+  ].join('\n');
+}
+
+export function embeddingContentHash(model: string, text: string): string {
+  return createHash('sha256').update(`${model}\n${text}`).digest('hex');
+}
+
+interface EmbeddingEntry {
+  entityType: EmbeddingEntityType;
+  entityId: string;
+  name: string;
+  content: string;
+}
+
+export interface EmbeddingFailure {
+  entityType: EmbeddingEntityType;
+  entityId: string;
+  name: string;
+  reason: string;
+}
+
+export interface EmbeddingReport {
+  generated: number;
+  skipped: number;
+  removed: number;
+  failed: EmbeddingFailure[];
+}
+
+export interface GenerateEmbeddingsOptions {
+  embedBatch?: EmbedBatch;
+  model?: string;
+  batchSize?: number;
+  retryDelayMs?: number;
+}
+
+function groupByRepository<T extends { repositoryId: string }>(rows: T[]): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const group = groups.get(row.repositoryId);
+    if (group) group.push(row);
+    else groups.set(row.repositoryId, [row]);
+  }
+  return groups;
+}
+
+// Repos del catálogo e ideas aprobadas, con el texto que representa a cada uno.
+async function loadEntries(db: Db): Promise<EmbeddingEntry[]> {
+  const repositories = await db
     .select({
       id: repository.id,
       fullName: repository.fullName,
       description: repository.description,
       primaryLanguage: repository.primaryLanguage,
-      licenseSpdx: repository.licenseSpdx,
       topics: repository.topics,
-      categorySlug: category.slug,
     })
     .from(repository)
-    .leftJoin(repositoryCategory, eq(repositoryCategory.repositoryId, repository.id))
-    .leftJoin(category, eq(category.id, repositoryCategory.categoryId));
+    .orderBy(asc(repository.fullName), asc(repository.id));
 
-  const repositories = new Map<string, RepositoryEmbedding>();
-  for (const row of rows) {
-    let repositoryData = repositories.get(row.id);
-    if (!repositoryData) {
-      repositoryData = {
-        id: row.id,
-        fullName: row.fullName,
-        description: row.description,
-        primaryLanguage: row.primaryLanguage,
-        licenseSpdx: row.licenseSpdx,
-        topics: row.topics,
-        categories: [],
-      };
-      repositories.set(row.id, repositoryData);
-    }
-    if (row.categorySlug) repositoryData.categories.push(row.categorySlug);
-  }
+  const categories = await db
+    .select({ repositoryId: repositoryCategory.repositoryId, slug: category.slug })
+    .from(repositoryCategory)
+    .innerJoin(category, eq(category.id, repositoryCategory.categoryId))
+    .orderBy(asc(category.slug));
 
-  const entries = [...repositories.values()];
-  for (let start = 0; start < entries.length; start += EMBEDDING_BATCH_SIZE) {
-    const batch = entries.slice(start, start + EMBEDDING_BATCH_SIZE);
-    const contents = batch.map(repositoryEmbeddingContent);
-    const vectors = await embedBatch(contents);
-    if (vectors.length !== batch.length) {
+  const ideas = await db
+    .select({
+      id: integrationIdea.id,
+      repositoryId: integrationIdea.repositoryId,
+      title: integrationIdea.title,
+      summary: integrationIdea.summary,
+      integrationType: integrationIdea.integrationType,
+    })
+    .from(integrationIdea)
+    .where(eq(integrationIdea.status, 'APPROVED'))
+    .orderBy(asc(integrationIdea.createdAt), asc(integrationIdea.id));
+
+  const categoriesByRepo = groupByRepository(categories);
+  const ideasByRepo = groupByRepository(ideas);
+  const fullNames = new Map(repositories.map(({ id, fullName }) => [id, fullName]));
+
+  const repositoryEntries = repositories.map((repo): EmbeddingEntry => ({
+    entityType: 'REPOSITORY',
+    entityId: repo.id,
+    name: repo.fullName,
+    content: repositoryEmbeddingContent({
+      fullName: repo.fullName,
+      description: repo.description,
+      primaryLanguage: repo.primaryLanguage,
+      topics: repo.topics,
+      categories: (categoriesByRepo.get(repo.id) ?? []).map(({ slug }) => slug),
+      approvedIdeas: ideasByRepo.get(repo.id) ?? [],
+    }),
+  }));
+
+  const ideaEntries = ideas.map((idea): EmbeddingEntry => ({
+    entityType: 'INTEGRATION_IDEA',
+    entityId: idea.id,
+    name: idea.title,
+    content: ideaEmbeddingContent({
+      ...idea,
+      repositoryFullName: fullNames.get(idea.repositoryId) ?? '',
+    }),
+  }));
+
+  return [...repositoryEntries, ...ideaEntries];
+}
+
+// entity_id no tiene FK: los vectores de repos borrados o de ideas que ya no
+// están aprobadas se limpian acá para que la búsqueda no los devuelva.
+async function removeStaleEmbeddings(db: Db): Promise<number> {
+  const staleRepositories = and(
+    eq(embedding.entityType, 'REPOSITORY'),
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(repository)
+        .where(eq(repository.id, embedding.entityId)),
+    ),
+  );
+  const staleIdeas = and(
+    eq(embedding.entityType, 'INTEGRATION_IDEA'),
+    notExists(
+      db
+        .select({ one: sql`1` })
+        .from(integrationIdea)
+        .where(
+          and(eq(integrationIdea.id, embedding.entityId), eq(integrationIdea.status, 'APPROVED')),
+        ),
+    ),
+  );
+  const removed = await db
+    .delete(embedding)
+    .where(sql`${staleRepositories} OR ${staleIdeas}`)
+    .returning({ id: embedding.id });
+  return removed.length;
+}
+
+async function embedWithRetry(
+  embedBatch: EmbedBatch,
+  inputs: string[],
+  retryDelayMs: number,
+): Promise<number[][]> {
+  const attempt = async () => {
+    const vectors = await embedBatch(inputs);
+    if (vectors.length !== inputs.length) {
       throw new Error('El proveedor devolvió una cantidad de embeddings inesperada');
     }
+    return vectors;
+  };
+  try {
+    return await attempt();
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    return attempt();
+  }
+}
 
-    for (let index = 0; index < batch.length; index += 1) {
+// Resumen para la consola (y el log de GitHub Actions), con cada fallo.
+export function formatEmbeddingReport(report: EmbeddingReport): string {
+  return [
+    `Embeddings: ${report.generated} generados, ${report.skipped} sin cambios, ` +
+      `${report.removed} eliminados, ${report.failed.length} fallidos.`,
+    ...report.failed.map(({ entityType, name, reason }) => `  ✗ ${entityType} ${name}: ${reason}`),
+  ].join('\n');
+}
+
+const entityKey = (entityType: string, entityId: string) => `${entityType}:${entityId}`;
+
+// Genera los vectores de repos e ideas aprobadas. Solo llama al proveedor
+// para lo que cambió (texto o modelo). Un lote que falla dos veces queda en
+// `failed` y la ejecución sigue con el próximo.
+export async function generateEmbeddings(
+  db: Db,
+  {
+    embedBatch = createOllamaEmbedder(),
+    model = embeddingModel(),
+    batchSize = DEFAULT_BATCH_SIZE,
+    retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+  }: GenerateEmbeddingsOptions = {},
+): Promise<EmbeddingReport> {
+  const removed = await removeStaleEmbeddings(db);
+  const entries = await loadEntries(db);
+
+  const existing = await db
+    .select({
+      entityType: embedding.entityType,
+      entityId: embedding.entityId,
+      contentHash: embedding.contentHash,
+    })
+    .from(embedding);
+  const storedHashes = new Map(
+    existing.map(({ entityType, entityId, contentHash }) => [
+      entityKey(entityType, entityId),
+      contentHash,
+    ]),
+  );
+
+  const pending = entries
+    .map((entry) => {
+      const input = `${DOCUMENT_PREFIX}${entry.content}`;
+      return { ...entry, input, contentHash: embeddingContentHash(model, input) };
+    })
+    .filter(
+      ({ entityType, entityId, contentHash }) =>
+        storedHashes.get(entityKey(entityType, entityId)) !== contentHash,
+    );
+
+  const report: EmbeddingReport = {
+    generated: 0,
+    skipped: entries.length - pending.length,
+    removed,
+    failed: [],
+  };
+
+  for (let start = 0; start < pending.length; start += batchSize) {
+    const batch = pending.slice(start, start + batchSize);
+    let vectors: number[][];
+    try {
+      vectors = await embedWithRetry(
+        embedBatch,
+        batch.map(({ input }) => input),
+        retryDelayMs,
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      report.failed.push(
+        ...batch.map(({ entityType, entityId, name }) => ({ entityType, entityId, name, reason })),
+      );
+      continue;
+    }
+
+    for (const [index, entry] of batch.entries()) {
       await upsertEmbedding(db, {
-        entityType: 'REPOSITORY',
-        entityId: batch[index].id,
-        content: contents[index],
+        entityType: entry.entityType,
+        entityId: entry.entityId,
+        content: entry.content,
+        contentHash: entry.contentHash,
         vector: vectors[index],
-        model: process.env.OLLAMA_EMBEDDING_MODEL ?? EMBEDDING_MODEL,
+        model,
       });
     }
+    report.generated += batch.length;
   }
-  return entries.length;
+
+  return report;
 }

@@ -12,7 +12,13 @@ export async function upsertEmbedding(db: Db, data: EmbeddingInput) {
     .values(data)
     .onConflictDoUpdate({
       target: [embedding.entityType, embedding.entityId],
-      set: { content: data.content, vector: data.vector, model: data.model, updatedAt: sql`now()` },
+      set: {
+        content: data.content,
+        vector: data.vector,
+        model: data.model,
+        contentHash: data.contentHash ?? null,
+        updatedAt: sql`now()`,
+      },
     })
     .returning();
   return saved;

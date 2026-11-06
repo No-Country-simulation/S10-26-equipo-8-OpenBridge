@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDb } from '../db/client.js';
-import { generateRepositoryEmbeddings } from './embeddings.js';
+import { formatEmbeddingReport, generateEmbeddings } from './embeddings.js';
 import { parseInitialInventory } from './initial-load.js';
 import { runSync } from './sync-run.js';
 
@@ -23,9 +23,12 @@ async function main(): Promise<void> {
   try {
     const run = await runSync(db, repositories, {
       token,
+      // Un vector que no se pudo generar no invalida la sincronización: se
+      // informa y el comando termina con error para que Actions lo marque.
       afterSync: async () => {
-        const embedded = await generateRepositoryEmbeddings(db);
-        console.log(`Embeddings actualizados: ${embedded} repositorios.`);
+        const report = await generateEmbeddings(db);
+        console.log(formatEmbeddingReport(report));
+        if (report.failed.length > 0) process.exitCode = 1;
       },
     });
 

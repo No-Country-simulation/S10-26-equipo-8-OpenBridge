@@ -41,8 +41,9 @@ error si no se alcanza el 98 %.
 
 1. **Extraer y recalcular salud:** `syncRepos` consulta en GitHub los
    repositorios de `seed/repos.yaml`, recalcula su salud y los guarda por lote.
-2. **Generar vectores:** crea el texto de cada repositorio y pide sus embeddings
-   a Ollama (`nomic-embed-text`, 768 dimensiones).
+2. **Generar vectores:** pide a Ollama (`nomic-embed-text`, 768 dimensiones) los
+   embeddings de cada repositorio y de cada idea aprobada. Ver
+   [Vectores semánticos](#vectores-semánticos-ob-12).
 3. **Cerrar el registro:** la ejecución queda `COMPLETED`, o `FAILED` con el
    error si falla una etapa. Las métricas ya guardadas no se revierten, y al
    relanzar se retoman los repositorios pendientes.
@@ -73,3 +74,22 @@ npm run db:sync -w backend
 
 Ollama se usa en `http://127.0.0.1:11434` por defecto; se puede cambiar con
 `OLLAMA_BASE_URL` y `OLLAMA_EMBEDDING_MODEL`.
+
+# Vectores semánticos (OB-12)
+
+`npm run db:embed -w backend` corre solo la etapa de vectores, sin consultar
+GitHub (por ejemplo, después de aprobar ideas). `db:sync` la corre al final.
+
+- **Qué se vectoriza:** el perfil de cada repo (nombre, descripción, categorías,
+  temas, lenguaje y hasta 5 ideas aprobadas) y cada idea `APPROVED`. Las ideas en
+  borrador o rechazadas no; si una idea deja de estar aprobada o se borra un
+  repo, su vector se elimina.
+- **Prefijos:** los documentos se envían como `search_document: …` y las
+  consultas (`embedQuery`, para la búsqueda de OB-32) como `search_query: …`.
+  `nomic-embed-text` necesita ambos para comparar bien.
+- **Incremental:** `embedding.content_hash` guarda el sha256 del modelo y el
+  texto enviado. Si no cambió, el vector no se recalcula; cambiar de modelo
+  regenera todo.
+- **Errores:** cada lote se reintenta una vez. Si vuelve a fallar, se informa en
+  la consola y la corrida sigue con el lote siguiente; el comando termina con
+  error para que Actions lo marque.

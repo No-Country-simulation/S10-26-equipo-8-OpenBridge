@@ -29,6 +29,13 @@
       "when": 1793624554511,
       "tag": "0003_add_sync_run",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793972161253,
+      "tag": "0004_add_embedding_content_hash",
+      "breakpoints": true
     }
   ]
 }

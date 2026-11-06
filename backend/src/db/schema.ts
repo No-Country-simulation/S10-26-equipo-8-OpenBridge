@@ -175,6 +175,10 @@ export const embedding = pgTable(
     content: text('content').notNull(),
     vector: vector('vector', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
     model: text('model').notNull(),
+    // sha256 del modelo y el texto enviado (con prefijo). Si no cambió, el
+    // vector no se recalcula (ver src/ingest/embeddings.ts). Null en los
+    // vectores previos a OB-12, que se regeneran en la próxima corrida.
+    contentHash: text('content_hash'),
     ...timestamps,
   },
   (t) => [
