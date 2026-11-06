@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Db } from '../db/client.js';
+import { getCatalogFilters } from './filters.js';
 import { listRepositories } from './repositories.js';
 import { apiError, listRepositoriesQuerySchema } from './schema.js';
 
@@ -22,6 +23,10 @@ export function catalogRouter(db: Db): Router {
       return;
     }
     res.json(page);
+  });
+
+  router.get('/filters', async (_req, res) => {
+    res.json(await getCatalogFilters(db));
   });
 
   return router;

@@ -4,18 +4,35 @@ import { maintenanceLevel } from '../db/schema.js';
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
+export const MIN_QUERY_LENGTH = 2;
+export const REPOSITORY_SORTS = ['health', 'stars', 'updated', 'relevance'] as const;
+
 // Query de GET /api/v1/repositories. Un tamaño de página mayor al máximo no
-// es un error: se limita a MAX_PAGE_SIZE.
-export const listRepositoriesQuerySchema = z.object({
-  category: z.string().trim().toLowerCase().min(1).optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  size: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .default(DEFAULT_PAGE_SIZE)
-    .transform((size) => Math.min(size, MAX_PAGE_SIZE)),
-});
+// es un error: se limita a MAX_PAGE_SIZE. Sin `sort`, con texto de búsqueda
+// ordena por relevancia y sin texto, por salud.
+export const listRepositoriesQuerySchema = z
+  .object({
+    category: z.string().trim().toLowerCase().min(1).optional(),
+    language: z.string().trim().min(1).max(50).optional(),
+    license: z.string().trim().min(1).max(50).optional(),
+    q: z.string().trim().min(MIN_QUERY_LENGTH).max(200).optional(),
+    sort: z.enum(REPOSITORY_SORTS).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    size: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(DEFAULT_PAGE_SIZE)
+      .transform((size) => Math.min(size, MAX_PAGE_SIZE)),
+  })
+  .refine(({ sort, q }) => sort !== 'relevance' || q !== undefined, {
+    message: 'sort=relevance necesita un texto de búsqueda (q)',
+    path: ['sort'],
+  })
+  .transform(({ sort, ...query }) => ({
+    ...query,
+    sort: sort ?? (query.q ? 'relevance' : 'health'),
+  }));
 
 export type ListRepositoriesQuery = z.output<typeof listRepositoriesQuerySchema>;
 
@@ -45,6 +62,23 @@ export const repositoryPageSchema = z.object({
     totalPages: z.number().int(),
   }),
 });
+
+const filterOptionSchema = z.object({ value: z.string(), count: z.number().int() });
+
+// Respuesta de GET /api/v1/filters: las opciones salen de los datos, con la
+// cantidad de repositorios de cada una, de mayor a menor. Contrato que
+// consume el front (CatalogFilters en frontend/src/lib/repositories.ts).
+export const catalogFiltersSchema = z.object({
+  languages: z.array(filterOptionSchema),
+  licenses: z.array(filterOptionSchema),
+  categories: z.array(filterOptionSchema.extend({ label: z.string() })),
+  maintenanceLevels: z.array(
+    filterOptionSchema.extend({ value: z.enum(maintenanceLevel.enumValues) }),
+  ),
+  stars: z.object({ min: z.number().int(), max: z.number().int() }),
+});
+
+export type CatalogFilters = z.output<typeof catalogFiltersSchema>;
 
 export const apiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),

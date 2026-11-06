@@ -142,10 +142,16 @@ describe('GET /api/v1/openapi.json', () => {
     const operation = res.body.paths['/api/v1/repositories'].get;
     expect(operation.parameters.map((p: { name: string }) => p.name)).toEqual([
       'category',
+      'language',
+      'license',
+      'q',
+      'sort',
       'page',
       'size',
     ]);
     expect(Object.keys(operation.responses)).toEqual(['200', '400', '404']);
     expect(res.body.components.schemas.RepositoryPage).toBeDefined();
+    expect(res.body.paths['/api/v1/filters'].get.responses).toHaveProperty('200');
+    expect(res.body.components.schemas.CatalogFilters).toBeDefined();
   });
 });

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import {
   apiErrorSchema,
+  catalogFiltersSchema,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  MIN_QUERY_LENGTH,
+  REPOSITORY_SORTS,
   repositoryPageSchema,
 } from './catalog/schema.js';
 import {
@@ -42,9 +45,10 @@ export const openApiDocument = {
   paths: {
     '/api/v1/repositories': {
       get: {
-        summary: 'Listar repositorios',
+        summary: 'Listar y buscar repositorios',
         description:
-          'Página del catálogo ordenada por puntaje de salud de mayor a menor. Los repositorios sin puntaje van al final.',
+          'Página del catálogo con filtros combinables y búsqueda por texto. Sin `sort`, ordena por relevancia si hay `q` ' +
+          'y si no, por puntaje de salud de mayor a menor (los repositorios sin puntaje van al final).',
         parameters: [
           {
             name: 'category',
@@ -52,6 +56,35 @@ export const openApiDocument = {
             required: false,
             description: 'Slug de la categoría (por ejemplo, auth).',
             schema: { type: 'string' },
+          },
+          {
+            name: 'language',
+            in: 'query',
+            required: false,
+            description: 'Lenguaje principal (por ejemplo, Python). No distingue mayúsculas.',
+            schema: { type: 'string' },
+          },
+          {
+            name: 'license',
+            in: 'query',
+            required: false,
+            description: 'Licencia SPDX (por ejemplo, MIT o Apache-2.0). No distingue mayúsculas.',
+            schema: { type: 'string' },
+          },
+          {
+            name: 'q',
+            in: 'query',
+            required: false,
+            description: `Texto libre sobre nombre, descripción, temas y categoría, desde ${MIN_QUERY_LENGTH} caracteres. Acepta español e inglés.`,
+            schema: { type: 'string', minLength: MIN_QUERY_LENGTH },
+          },
+          {
+            name: 'sort',
+            in: 'query',
+            required: false,
+            description:
+              'health (salud), stars (estrellas), updated (último commit) o relevance (solo con q).',
+            schema: { type: 'string', enum: [...REPOSITORY_SORTS] },
           },
           {
             name: 'page',
@@ -72,6 +105,17 @@ export const openApiDocument = {
           '200': json('RepositoryPage', 'Página de repositorios con el total.'),
           '400': json('ApiError', 'Parámetros inválidos (código INVALID_QUERY).'),
           '404': json('ApiError', 'La categoría no existe (código CATEGORY_NOT_FOUND).'),
+        },
+      },
+    },
+    '/api/v1/filters': {
+      get: {
+        summary: 'Opciones de los filtros del catálogo',
+        description:
+          'Lenguajes, licencias, categorías y niveles de mantenimiento presentes en el catálogo, con la cantidad de ' +
+          'repositorios de cada uno (de mayor a menor), y el rango de estrellas.',
+        responses: {
+          '200': json('CatalogFilters', 'Opciones disponibles.'),
         },
       },
     },
@@ -104,6 +148,7 @@ export const openApiDocument = {
       SearchRequest: jsonSchema(searchRequestSchema, 'input'),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
+      CatalogFilters: jsonSchema(catalogFiltersSchema),
       ApiError: jsonSchema(apiErrorSchema),
     },
   },
