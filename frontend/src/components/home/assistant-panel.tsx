@@ -61,8 +61,8 @@ export function AssistantPanel() {
           Contanos qué estás construyendo
         </h2>
         <p className="max-w-110 text-[15px] leading-[23px] text-muted-foreground">
-          El asistente busca en el catálogo y te propone una arquitectura con herramientas
-          concretas y cómo conectarlas.
+          Nuestro asistente buscará en el catálogo y propondrá una arquitectura con las mejores
+          herramientas y cómo conectarlas entre sí.
         </p>
 
         <p className="mt-4 text-xs text-muted-foreground">
@@ -130,7 +130,7 @@ export function AssistantPanel() {
           <p id="assistant-hint" aria-live="polite" className="text-xs text-muted-foreground">
             {isValid
               ? 'Se abre en el Asistente · ⌘ Enter para enviar'
-              : `Escribí al menos ${MIN_LENGTH} caracteres para continuar`}
+              : `Escribe al menos ${MIN_LENGTH} caracteres para continuar`}
           </p>
           <Button type="submit" disabled={!isValid} className="h-10 rounded-md px-4">
             Armar arquitectura
