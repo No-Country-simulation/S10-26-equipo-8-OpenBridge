@@ -71,7 +71,7 @@ export function HeaderSearch() {
               // Mobile: cubre toda la barra del header y se revela desde la lupa.
               'max-md:absolute max-md:inset-0 max-md:h-auto max-md:w-auto max-md:animate-[search-reveal_280ms_cubic-bezier(0.16,1,0.3,1)] max-md:rounded-none max-md:border-0 max-md:border-b max-md:px-2 motion-reduce:max-md:animate-none',
             ]
-          : 'w-8 border-transparent hover:bg-muted',
+          : 'w-8 border-transparent hover:bg-muted max-md:h-10 max-md:w-10',
       )}
     >
       <button
@@ -79,7 +79,7 @@ export function HeaderSearch() {
         aria-label={open ? 'Cerrar búsqueda' : 'Buscar herramientas'}
         aria-expanded={open}
         onClick={onToggle}
-        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-foreground/40 max-md:data-[open=true]:size-10"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground max-md:size-10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-foreground/40 max-md:data-[open=true]:size-10"
         data-open={open}
       >
         <Search aria-hidden className={cn('size-4', open && 'max-md:hidden')} strokeWidth={1.5} />
