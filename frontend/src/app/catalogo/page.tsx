@@ -4,6 +4,7 @@ import { CatalogHeader } from '@/components/catalog/catalog-header';
 import { CatalogSearch } from '@/components/catalog/catalog-search';
 import { EmptyState } from '@/components/catalog/empty-state';
 import { FiltersPanel } from '@/components/catalog/filters-panel';
+import { FiltersSheet } from '@/components/catalog/filters-sheet';
 import { Pagination } from '@/components/catalog/pagination';
 import { RepositoryGrid } from '@/components/catalog/repository-grid';
 import { ResultsBar } from '@/components/catalog/results-bar';
@@ -53,6 +54,8 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
 
   const filterParams = { category: categorySlug, language, license, maintenance, minStars };
   const hasFilters = Boolean(language || license || maintenance.length || minStars);
+  const activeCount =
+    [categorySlug, language, license, minStars].filter(Boolean).length + maintenance.length;
 
   const [{ data, meta }, { meta: unfiltered }] = await Promise.all([
     listRepositories({ ...filterParams, q, sort, page, size }),
@@ -89,6 +92,14 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
               sort={sort ?? (q ? 'relevance' : 'stars')}
               hasQuery={Boolean(q)}
               params={{ ...filterParams, q, size: urlParams.size }}
+              filters={
+                <FiltersSheet
+                  filters={filters}
+                  params={{ ...urlParams, q }}
+                  activeCount={activeCount}
+                  total={meta.total}
+                />
+              }
             />
             <ActiveFilters filters={filters} params={{ ...urlParams, q }} />
             {data.length === 0 ? (
