@@ -6,10 +6,13 @@ export const metadata: Metadata = {
   description: 'Describí tu negocio y recibí una arquitectura con herramientas open source.',
 };
 
-export default function AsistentePage() {
+export default async function AsistentePage({ searchParams }: PageProps<'/asistente'>) {
+  const { description } = await searchParams;
+  const initial = (Array.isArray(description) ? description[0] : description)?.trim() ?? '';
+
   return (
     <main className="flex flex-1 flex-col">
-      <AssistantWorkspace />
+      <AssistantWorkspace initialDescription={initial} />
     </main>
   );
 }
