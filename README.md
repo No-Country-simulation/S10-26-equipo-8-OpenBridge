@@ -85,6 +85,23 @@ En Windows conviene Ollama nativo: usa la GPU (también AMD) y genera unas 3 ide
 
 Necesita `DATABASE_URL` y `GITHUB_TOKEN` en `backend/.env`. Para Ollama se usan, si están definidas, `OLLAMA_BASE_URL` (por defecto `http://localhost:11434`) y `OLLAMA_MODEL` (por defecto `qwen2.5:7b`). Si una respuesta no cumple el esquema, se reintenta una vez; si vuelve a fallar, se descarta y queda en `backend/reports/ideas-report.json` con el motivo y la respuesta del modelo.
 
+## Catálogo: filtros y búsqueda por texto
+
+`GET /api/v1/repositories` combina filtros y búsqueda por texto:
+
+| Parámetro      | Ejemplo             | Qué hace                                                                          |
+| -------------- | ------------------- | --------------------------------------------------------------------------------- |
+| `category`     | `auth`              | Slug de la categoría                                                              |
+| `language`     | `Python`            | Lenguaje principal (sin distinguir mayúsculas)                                    |
+| `license`      | `MIT`               | Licencia SPDX (sin distinguir mayúsculas)                                         |
+| `q`            | `motor de búsqueda` | Texto libre (mínimo 2 caracteres) sobre nombre, descripción, temas y categoría    |
+| `sort`         | `stars`             | `health` (por defecto), `stars`, `updated` o `relevance` (por defecto si hay `q`) |
+| `page`, `size` | `2`, `20`           | Paginación                                                                        |
+
+La búsqueda usa el texto completo de Postgres: los repos se indexan en inglés y las categorías en español, y la consulta se prueba con los dos idiomas. Por eso "motor de búsqueda" encuentra Meilisearch y Typesense por su categoría. Para lo que no comparte palabras con la consulta ("login con redes sociales") está la búsqueda por significado.
+
+`GET /api/v1/filters` devuelve las opciones de los filtros a partir de los datos reales: lenguajes, licencias, categorías y niveles de mantenimiento con su cantidad de repos, y el rango de estrellas.
+
 ## Búsqueda por significado
 
 `POST /api/v1/search` devuelve los repositorios e ideas aprobadas más parecidos en significado a un texto, con su similitud coseno (1 es idéntico; con `bge-m3`, lo relevante suele estar entre 0,4 y 0,7) y su categoría. Las ideas se filtran por la categoría y la salud de su repositorio.
