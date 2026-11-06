@@ -1,9 +1,10 @@
+import { redirect } from 'next/navigation';
 import { ActiveFilters } from '@/components/catalog/active-filters';
 import { CatalogHeader } from '@/components/catalog/catalog-header';
 import { CatalogSearch } from '@/components/catalog/catalog-search';
 import { EmptyState } from '@/components/catalog/empty-state';
 import { FiltersPanel } from '@/components/catalog/filters-panel';
-import { LoadMore } from '@/components/catalog/load-more';
+import { Pagination } from '@/components/catalog/pagination';
 import { RepositoryGrid } from '@/components/catalog/repository-grid';
 import { ResultsBar } from '@/components/catalog/results-bar';
 import { catalogHref } from '@/lib/catalog-url';
@@ -53,9 +54,8 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
   const filterParams = { category: categorySlug, language, license, maintenance, minStars };
   const hasFilters = Boolean(language || license || maintenance.length || minStars);
 
-  // "Cargar más" muestra las páginas 1 a N juntas: equivale a pedir esas N páginas al contrato.
   const [{ data, meta }, { meta: unfiltered }] = await Promise.all([
-    listRepositories({ ...filterParams, q, sort, page: 1, size: size * page }),
+    listRepositories({ ...filterParams, q, sort, page, size }),
     listRepositories({ category: categorySlug, size: 1 }),
   ]);
 
@@ -64,6 +64,11 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
     sort,
     size: size !== DEFAULT_PAGE_SIZE ? size : undefined,
   };
+
+  // Una página que ya no existe (enlace viejo, filtros que dejan menos resultados) vuelve a la última.
+  if (meta.totalPages > 0 && page > meta.totalPages) {
+    redirect(catalogHref({ ...urlParams, q, page: meta.totalPages }));
+  }
 
   return (
     <main className="flex-1">
@@ -103,10 +108,12 @@ export default async function CatalogPage({ searchParams }: PageProps<'/catalogo
             ) : (
               <>
                 <RepositoryGrid repositories={data} />
-                <LoadMore
-                  shown={data.length}
+                <Pagination
+                  page={page}
+                  totalPages={meta.totalPages}
+                  size={size}
                   total={meta.total}
-                  nextHref={catalogHref({ ...urlParams, q, page: page + 1 })}
+                  hrefFor={(n) => catalogHref({ ...urlParams, q, page: n })}
                 />
               </>
             )}

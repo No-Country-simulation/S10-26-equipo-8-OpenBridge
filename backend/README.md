@@ -1,73 +1,68 @@
-# Módulo de Sincronización Automatizada (OB-13)
+# Carga inicial del catálogo (OB-17)
 
-Este módulo ejecuta el pipeline del catálogo de forma programada o manual: extrae métricas desde GitHub, recalcula la salud de los repositorios, genera embeddings y registra cada ejecución en `sync_run`.
+La carga importa los repositorios de `seed/repos.yaml`, consulta
+sus métricas actuales en GitHub y guarda cada repositorio con su puntaje de
+salud y categoría. La lista tiene 136 repositorios; el proceso debe cargar al
+menos el 98 % (134 repositorios) para considerarse exitoso.
+La licencia SPDX se toma del campo `license` del YAML, que prevalece sobre la
+licencia detectada por GitHub.
+El indicador `active_maintainer` se infiere a partir de PRs mergeados en los
+últimos 90 días. Los proyectos que gestionan su actividad fuera de PRs (por
+ejemplo, Postgres mediante listas de correo) aparecerán como `false` aunque
+sigan activos.
 
-## 📋 Tabla de Contenidos
+## Requisitos
 
-1. [Flujo del Proceso](#-flujo-del-proceso)
-2. [Estructura de Datos (sync_run)](#-estructura-de-datos-sync_run)
-3. [Arquitectura del Código](#-arquitectura-del-código)
-4. [Estrategia de Orquestación](#-estrategia-de-orquestación)
-5. [Guía de Uso y Pruebas](#-guía-de-uso-y-pruebas)
+- Docker en ejecución.
+- `backend/.env` configurado con `DATABASE_URL` y `GITHUB_TOKEN`. Puedes copiar
+  `backend/.env.example` como punto de partida. El token necesita acceso de
+  lectura a repositorios públicos; no lo compartas ni lo subas al repositorio.
 
----
+## Ejecutar
 
-## 🔄 Flujo del Proceso
+Desde la raíz del proyecto:
 
-1. **Extraer y recalcular salud:** `syncRepos` consulta el inventario de `seed/repos.yaml` en GitHub GraphQL, calcula el puntaje de salud con las métricas actuales y persiste cada repositorio por lote.
-2. **Generar vectores:** terminada la extracción, el pipeline construye contenido semántico con los datos del repositorio y genera embeddings mediante Ollama y `nomic-embed-text`.
-3. **Cerrar el registro:** si ambas etapas terminan, el estado pasa a `COMPLETED`. Los repositorios no encontrados o con errores por alias se cuentan como fallidos. Si una etapa crítica falla, la ejecución queda `FAILED` con su error.
+```powershell
+npm run db:up
+npm run db:migrate -w backend
+npm run db:load-initial -w backend
+```
 
-Los cambios de GitHub se guardan por lote, así que un fallo posterior al extraer no revierte métricas ya persistidas. La ejecución fallida se puede relanzar: el proceso retoma repositorios pendientes y vuelve a generar los embeddings.
+La carga es idempotente: puedes volver a ejecutarla para actualizar los datos.
+Si GitHub rechaza un lote, el proceso lo divide y reintenta con grupos menores.
+Al finalizar, genera `backend/reports/initial-load-report.json` con el resultado
+y el detalle de cada repositorio que no pudo cargarse. El comando termina con
+error si no se alcanza el 98 %.
 
-## 🗃️ Estructura de Datos (sync_run)
+# Sincronización diaria (OB-13)
 
-`sync_run` conserva el estado y el progreso de cada ejecución:
+`npm run db:sync -w backend` ejecuta el pipeline completo y deja el registro en
+`sync_run`:
 
-| Campo                                         | Descripción                                          |
-| --------------------------------------------- | ---------------------------------------------------- |
-| `status`                                      | `RUNNING`, `COMPLETED` o `FAILED`                    |
-| `started_at`, `finished_at`                   | Inicio y cierre de la ejecución                      |
-| `repos_total`                                 | Repositorios incluidos                               |
-| `repos_ok`, `repos_failed`                    | Repositorios sincronizados correctamente y fallidos  |
-| `rate_limit_used`                             | Puntos de GitHub GraphQL consumidos                  |
-| `rate_limit_remaining`, `rate_limit_reset_at` | Saldo y hora de reinicio informados por GitHub       |
-| `error`                                       | Motivo de fallo de una etapa crítica, si corresponde |
+1. **Extraer y recalcular salud:** `syncRepos` consulta en GitHub los
+   repositorios de `seed/repos.yaml`, recalcula su salud y los guarda por lote.
+2. **Generar vectores:** crea el texto de cada repositorio y pide sus embeddings
+   a Ollama (`nomic-embed-text`, 768 dimensiones).
+3. **Cerrar el registro:** la ejecución queda `COMPLETED`, o `FAILED` con el
+   error si falla una etapa. Las métricas ya guardadas no se revierten, y al
+   relanzar se retoman los repositorios pendientes.
 
-La duración se calcula con `finished_at - started_at`. Los contadores se actualizan por lote. Si algunos repositorios fallan, se conserva su conteo aunque el pipeline complete; el comando devuelve un código de error para que Actions reporte la ejecución parcial.
+La duración es `finished_at - started_at`. El comando termina con error si algún
+repositorio falla, para que Actions marque la ejecución parcial.
 
-## 🧩 Arquitectura del Código
+## Ejecución programada y manual
 
-- `src/ingest/sync-cli.ts`: carga el inventario y conecta sincronización, vectores y base de datos.
-- `src/ingest/sync-run.ts`: crea o retoma el registro, guarda los contadores por lote y cierra la ejecución.
-- `src/ingest/github.ts`: consulta GitHub, calcula salud y persiste métricas del repositorio.
-- `src/ingest/embeddings.ts`: crea el texto semántico, solicita vectores a Ollama en lotes y los guarda.
-- `src/db/embeddings.ts`: persiste un embedding por entidad y reemplaza el vector al regenerarlo.
-- `.github/workflows/daily-sync.yml`: define los disparadores automáticos y manuales.
+`.github/workflows/daily-sync.yml` corre todos los días a las **03:00 UTC**. Para
+forzarla: **Actions → Daily catalog sync → Run workflow**. Ambos disparadores
+ejecutan el mismo comando y nunca corren dos a la vez.
 
-La sincronización genera embeddings para repositorios. El esquema también admite embeddings de ideas de integración, pero esta tarea no los regenera.
+Secrets requeridos en **Settings → Secrets and variables → Actions**:
 
-## ⏱️ Estrategia de Orquestación
+- `DATABASE_URL`: PostgreSQL con pgvector.
+- `CATALOG_GITHUB_TOKEN`: token con lectura de repositorios públicos (llega al
+  proceso como `GITHUB_TOKEN`).
 
-GitHub Actions ejecuta el workflow a las **03:00 UTC** todos los días (`0 3 * * *`). Para forzar una ejecución, usa **Actions → Daily catalog sync → Run workflow**. Ambos disparadores llaman al mismo comando, `npm run db:sync -w backend`.
-
-El workflow evita ejecuciones concurrentes y realiza estos pasos:
-
-1. Instala dependencias con `npm ci`.
-2. Inicia Ollama y descarga `nomic-embed-text`.
-3. Aplica las migraciones de la base configurada.
-4. Ejecuta la sincronización.
-
-Configura en **Settings → Secrets and variables → Actions**:
-
-- `DATABASE_URL`: URL de PostgreSQL con pgvector.
-- `CATALOG_GITHUB_TOKEN`: token de GitHub con acceso de lectura a los repositorios públicos consultados.
-
-Actions entrega el token al proceso como `GITHUB_TOKEN`. Los secretos nunca se guardan en el repositorio.
-
-## 🧪 Guía de Uso y Pruebas
-
-Para ejecutarlo localmente, configura `backend/.env` con `DATABASE_URL` y `GITHUB_TOKEN`, inicia PostgreSQL con pgvector y Ollama, y ejecuta desde la raíz:
+## Ejecutar en local
 
 ```powershell
 npm run db:up
@@ -76,14 +71,5 @@ ollama pull nomic-embed-text
 npm run db:sync -w backend
 ```
 
-Ollama usa `http://127.0.0.1:11434` por defecto. Puedes configurar `OLLAMA_BASE_URL` y `OLLAMA_EMBEDDING_MODEL`; el modelo debe generar vectores de 768 dimensiones.
-
-Validación del backend:
-
-```powershell
-npm run build -w backend
-npm run lint -w backend
-npm run test -w backend
-```
-
-Los tests de base de datos requieren Docker/PostgreSQL local, ya que crean bases temporales.
+Ollama se usa en `http://127.0.0.1:11434` por defecto; se puede cambiar con
+`OLLAMA_BASE_URL` y `OLLAMA_EMBEDDING_MODEL`.

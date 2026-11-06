@@ -1,0 +1,32 @@
+{
+  "repository": {
+    "fullName": "ollama/ollama",
+    "description": "Get up and running with large language models locally",
+    "primaryLanguage": "Go",
+    "topics": ["llm", "llama", "local-ai"],
+    "readme": "# Ollama\n\nGet up and running with large language models on your own machine.\n\n## Quickstart\n\n    ollama run qwen2.5\n\n## Docker\n\nThe official image is available as `ollama/ollama`.\n\n## REST API\n\nOllama has a REST API for running and managing models.\n\nGenerate a response:\n\n    curl http://localhost:11434/api/generate -d '{\"model\": \"qwen2.5\", \"prompt\": \"Why is the sky blue?\"}'\n\nChat with a model: `POST /api/chat` with a list of messages."
+  },
+  "ideas": [
+    {
+      "title": "Resumir tickets de soporte sin enviar datos afuera",
+      "summary": "Llamar a la API local de Ollama desde el backend para resumir cada ticket nuevo en dos líneas. Los datos de los clientes no salen de la infraestructura propia.",
+      "integrationType": "REST_API",
+      "triggers": [],
+      "snippet": {
+        "language": "typescript",
+        "code": "const res = await fetch('http://localhost:11434/api/generate', {\n  method: 'POST',\n  body: JSON.stringify({ model: 'qwen2.5', prompt: `Resumí este ticket: ${ticket.body}`, stream: false }),\n});\nconst { response } = await res.json();"
+      },
+      "stackCompatibility": ["node", "python"],
+      "difficulty": "LOW"
+    },
+    {
+      "title": "Modelo de lenguaje propio en el entorno de staging",
+      "summary": "Sumar la imagen oficial ollama/ollama a los servicios del entorno de staging para que todo el equipo pruebe funciones de IA con el mismo modelo, sin claves de proveedores externos.",
+      "integrationType": "DOCKER",
+      "triggers": [],
+      "snippet": null,
+      "stackCompatibility": ["docker"],
+      "difficulty": "MEDIUM"
+    }
+  ]
+}

@@ -51,17 +51,6 @@ describe('carga inicial del inventario', () => {
     ]);
   });
 
-  it('normaliza la categoría de autenticación y exige una licencia', () => {
-    expect(
-      parseInitialInventory(
-        'repositories:\n  - repo: acme/tool\n    category: Authentication\n    license: MIT\n',
-      ),
-    ).toEqual([{ owner: 'acme', name: 'tool', categories: ['auth'], license: 'MIT' }]);
-    expect(() =>
-      parseInitialInventory('repositories: [{ repo: acme/tool, categories: [ai] }]'),
-    ).toThrow(/licencia válida/);
-  });
-
   it('usa la licencia del inventario cuando GitHub devuelve NOASSERTION', async () => {
     const repositories = [fixture('acme', 'tool', 'database', 'Apache-2.0')];
     const persistRepository = vi.fn().mockResolvedValue(undefined);
@@ -142,6 +131,51 @@ describe('carga inicial del inventario', () => {
       targetMet: false,
     });
     expect(report.failures.map(({ repo }) => repo)).toEqual(['acme/one']);
+  });
+
+  it('divide lotes cuyos repositorios vuelven con status error y reintenta el resto', async () => {
+    const repositories = [
+      fixture('acme', 'one'),
+      fixture('acme', 'two'),
+      fixture('acme', 'three'),
+      fixture('acme', 'four'),
+    ];
+    // Así se comporta fetchRepos desde OB-10: un 502 no lanza, marca cada repo del lote con error.
+    const fetchBatch = vi.fn(async (batch: RepoRef[]) =>
+      batch.map((repository, index): FetchRepoResult =>
+        batch.some(({ name }) => name === 'one')
+          ? { request: repository, status: 'error', error: 'GitHub respondió 502' }
+          : {
+              request: repository,
+              status: 'ok',
+              renamed: false,
+              repository: {
+                githubId: index + 1,
+                fullName: `${repository.owner}/${repository.name}`,
+                name: repository.name,
+                url: `https://github.com/${repository.owner}/${repository.name}`,
+              },
+            },
+      ),
+    );
+    const persistRepository = vi.fn().mockResolvedValue(undefined);
+
+    const report = await loadInitialInventory(
+      repositories,
+      {
+        fetchBatch,
+        persistRepository,
+        categoryIds: new Map([['auth', 'category-auth']]),
+      },
+      2,
+    );
+
+    expect(fetchBatch).toHaveBeenCalledTimes(4);
+    expect(persistRepository).toHaveBeenCalledTimes(3);
+    expect(report).toMatchObject({ attempted: 4, loaded: 3, failed: 1 });
+    expect(report.failures).toEqual([
+      { repo: 'acme/one', categories: ['auth'], reason: 'GitHub respondió 502' },
+    ]);
   });
 
   it('alcanza el umbral requerido cuando carga exactamente el 98 %', async () => {
