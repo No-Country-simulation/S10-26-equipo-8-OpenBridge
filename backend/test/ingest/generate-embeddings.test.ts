@@ -11,7 +11,7 @@ import {
 import { generateEmbeddings } from '../../src/ingest/embeddings.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
 
-const MODEL = 'nomic-embed-text';
+const MODEL = 'bge-m3';
 
 // Devuelve un vector fijo por texto y registra lo que recibe.
 function fakeEmbedder() {
@@ -87,9 +87,12 @@ describe('generación incremental de embeddings', () => {
     await t.db.delete(category);
   });
 
-  it('vectoriza repos e ideas aprobadas con el prefijo search_document', async () => {
+  it('vectoriza repos e ideas aprobadas, con el texto que se guarda', async () => {
     const repo = await addRepo('acme/auth');
-    const [auth] = await t.db.insert(category).values({ slug: 'auth', name: 'Auth' }).returning();
+    const [auth] = await t.db
+      .insert(category)
+      .values({ slug: 'auth', name: 'Autenticación', description: 'Inicio de sesión' })
+      .returning();
     await t.db.insert(repositoryCategory).values({ repositoryId: repo.id, categoryId: auth.id });
     const approved = await addIdea(repo.id, 'Login único', 'APPROVED');
     await addIdea(repo.id, 'Borrador', 'DRAFT');
@@ -101,14 +104,13 @@ describe('generación incremental de embeddings', () => {
     expect(report).toMatchObject({ generated: 2, skipped: 0, removed: 0, failed: [] });
     const texts = sentTexts(embed);
     expect(texts).toHaveLength(2);
-    expect(texts.every((text) => text.startsWith('search_document: '))).toBe(true);
     expect(texts.join('\n')).not.toMatch(/Borrador|Rechazada/);
 
     const rows = await stored();
     const repoRow = rows.find(({ entityId }) => entityId === repo.id);
-    expect(repoRow?.content).toContain('Categories: auth');
+    expect(repoRow?.content).toContain('Categories: Autenticación (Inicio de sesión)');
     expect(repoRow?.content).toContain('- Login único: Resumen de Login único');
-    expect(repoRow?.content.startsWith('search_document:')).toBe(false);
+    expect(texts).toContain(repoRow?.content);
     expect(rows.find(({ entityId }) => entityId === approved.id)).toMatchObject({
       entityType: 'INTEGRATION_IDEA',
       model: MODEL,

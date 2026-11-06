@@ -41,12 +41,12 @@ describe('generación de embeddings con Ollama', () => {
     );
   });
 
-  it('vectoriza las consultas con el prefijo search_query', async () => {
+  it('vectoriza las consultas tal cual, sin prefijo (bge-m3 no los usa)', async () => {
     const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5);
     const embedBatch = vi.fn().mockResolvedValue([vector]);
 
     await expect(embedQuery('login único para empresas', { embedBatch })).resolves.toEqual(vector);
-    expect(embedBatch).toHaveBeenCalledWith(['search_query: login único para empresas']);
+    expect(embedBatch).toHaveBeenCalledWith(['login único para empresas']);
   });
 });
 
@@ -57,7 +57,10 @@ describe('textos a vectorizar', () => {
         fullName: 'acme/tool',
         description: 'Useful tool',
         primaryLanguage: 'TypeScript',
-        categories: ['ai', 'search'],
+        categories: [
+          { name: 'IA', description: 'Modelos, orquestación y herramientas de IA' },
+          { name: 'Búsqueda', description: null },
+        ],
         topics: ['rag'],
         approvedIdeas: [
           { title: 'Buscador de documentos', summary: 'Indexar manuales internos.' },
@@ -69,7 +72,7 @@ describe('textos a vectorizar', () => {
         'Repository: acme/tool',
         'Description: Useful tool',
         'Language: TypeScript',
-        'Categories: ai, search',
+        'Categories: IA (Modelos, orquestación y herramientas de IA), Búsqueda',
         'Topics: rag',
         'Integration ideas:',
         '- Buscador de documentos: Indexar manuales internos.',
@@ -127,11 +130,11 @@ describe('textos a vectorizar', () => {
   });
 
   it('calcula un hash estable que cambia con el texto o el modelo', () => {
-    const hash = embeddingContentHash('nomic-embed-text', 'texto');
+    const hash = embeddingContentHash('bge-m3', 'texto');
 
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(embeddingContentHash('nomic-embed-text', 'texto')).toBe(hash);
-    expect(embeddingContentHash('nomic-embed-text', 'otro texto')).not.toBe(hash);
+    expect(embeddingContentHash('bge-m3', 'texto')).toBe(hash);
+    expect(embeddingContentHash('bge-m3', 'otro texto')).not.toBe(hash);
     expect(embeddingContentHash('otro-modelo', 'texto')).not.toBe(hash);
   });
 });

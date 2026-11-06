@@ -42,6 +42,6 @@ jobs:
           curl --fail --silent --show-error --output /dev/null
           --request POST http://127.0.0.1:11434/api/pull
           --header 'Content-Type: application/json'
-          --data '{"model":"nomic-embed-text","stream":false}'
+          --data '{"model":"bge-m3","stream":false}'
       - run: npm run db:migrate -w backend
       - run: npm run db:sync -w backend

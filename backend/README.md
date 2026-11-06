@@ -41,7 +41,7 @@ error si no se alcanza el 98 %.
 
 1. **Extraer y recalcular salud:** `syncRepos` consulta en GitHub los
    repositorios de `seed/repos.yaml`, recalcula su salud y los guarda por lote.
-2. **Generar vectores:** pide a Ollama (`nomic-embed-text`, 768 dimensiones) los
+2. **Generar vectores:** pide a Ollama (`bge-m3`, 1024 dimensiones) los
    embeddings de cada repositorio y de cada idea aprobada. Ver
    [Vectores semánticos](#vectores-semánticos-ob-12).
 3. **Cerrar el registro:** la ejecución queda `COMPLETED`, o `FAILED` con el
@@ -68,7 +68,7 @@ Secrets requeridos en **Settings → Secrets and variables → Actions**:
 ```powershell
 npm run db:up
 npm run db:migrate -w backend
-ollama pull nomic-embed-text
+ollama pull bge-m3
 npm run db:sync -w backend
 ```
 
@@ -84,9 +84,10 @@ GitHub (por ejemplo, después de aprobar ideas). `db:sync` la corre al final.
   temas, lenguaje y hasta 5 ideas aprobadas) y cada idea `APPROVED`. Las ideas en
   borrador o rechazadas no; si una idea deja de estar aprobada o se borra un
   repo, su vector se elimina.
-- **Prefijos:** los documentos se envían como `search_document: …` y las
-  consultas (`embedQuery`, para la búsqueda de OB-32) como `search_query: …`.
-  `nomic-embed-text` necesita ambos para comparar bien.
+- **Modelo:** `bge-m3`, multilingüe (las consultas llegan en español y los
+  README están en inglés). Documentos y consultas (`embedQuery`, para la
+  búsqueda de OB-32) se envían sin prefijo. Las categorías entran con su nombre
+  y descripción en español.
 - **Incremental:** `embedding.content_hash` guarda el sha256 del modelo y el
   texto enviado. Si no cambió, el vector no se recalcula; cambiar de modelo
   regenera todo.

@@ -11,16 +11,15 @@ import {
   repositoryCategory,
 } from '../db/schema.js';
 
-const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
+// bge-m3: multilingüe (las consultas llegan en español y los README en
+// inglés) y sin prefijos de tarea; documentos y consultas se envían tal cual.
+// Se eligió sobre nomic-embed-text comparando el top 5 en consultas reales
+// (ver PR de OB-12). Cambiarlo exige migrar EMBEDDING_DIMENSIONS.
+const DEFAULT_EMBEDDING_MODEL = 'bge-m3';
 const DEFAULT_BATCH_SIZE = 32;
 const DEFAULT_RETRY_DELAY_MS = 2000;
 // Tope de ideas aprobadas en el perfil de un repo: más diluye su significado.
 const MAX_PROFILE_IDEAS = 5;
-
-// nomic-embed-text se entrenó con prefijos de tarea: los documentos y las
-// consultas tienen que llevar el suyo para que la similitud funcione bien.
-const DOCUMENT_PREFIX = 'search_document: ';
-const QUERY_PREFIX = 'search_query: ';
 
 export type EmbedBatch = (inputs: string[]) => Promise<number[][]>;
 
@@ -92,7 +91,7 @@ export async function embedQuery(
   text: string,
   { embedBatch = createOllamaEmbedder() }: { embedBatch?: EmbedBatch } = {},
 ): Promise<number[]> {
-  const [vector] = await embedBatch([`${QUERY_PREFIX}${text}`]);
+  const [vector] = await embedBatch([text]);
   return vector;
 }
 
@@ -100,7 +99,9 @@ export interface RepositoryProfile {
   fullName: string;
   description: string | null;
   primaryLanguage: string | null;
-  categories: string[];
+  // Nombre y descripción en español: le dan al perfil las palabras con las
+  // que se busca, que la descripción de GitHub suele no tener.
+  categories: { name: string; description: string | null }[];
   topics: string[];
   approvedIdeas: { title: string; summary: string }[];
 }
@@ -111,7 +112,10 @@ export function repositoryEmbeddingContent(profile: RepositoryProfile): string {
     `Repository: ${profile.fullName}`,
     profile.description && `Description: ${profile.description}`,
     profile.primaryLanguage && `Language: ${profile.primaryLanguage}`,
-    profile.categories.length > 0 && `Categories: ${profile.categories.join(', ')}`,
+    profile.categories.length > 0 &&
+      `Categories: ${profile.categories
+        .map(({ name, description }) => (description ? `${name} (${description})` : name))
+        .join(', ')}`,
     profile.topics.length > 0 && `Topics: ${profile.topics.join(', ')}`,
     ideas.length > 0 && 'Integration ideas:',
     ...ideas.map(({ title, summary }) => `- ${title}: ${summary}`),
@@ -190,7 +194,11 @@ async function loadEntries(db: Db): Promise<EmbeddingEntry[]> {
     .orderBy(asc(repository.fullName), asc(repository.id));
 
   const categories = await db
-    .select({ repositoryId: repositoryCategory.repositoryId, slug: category.slug })
+    .select({
+      repositoryId: repositoryCategory.repositoryId,
+      name: category.name,
+      description: category.description,
+    })
     .from(repositoryCategory)
     .innerJoin(category, eq(category.id, repositoryCategory.categoryId))
     .orderBy(asc(category.slug));
@@ -220,7 +228,7 @@ async function loadEntries(db: Db): Promise<EmbeddingEntry[]> {
       description: repo.description,
       primaryLanguage: repo.primaryLanguage,
       topics: repo.topics,
-      categories: (categoriesByRepo.get(repo.id) ?? []).map(({ slug }) => slug),
+      categories: categoriesByRepo.get(repo.id) ?? [],
       approvedIdeas: ideasByRepo.get(repo.id) ?? [],
     }),
   }));
@@ -329,10 +337,7 @@ export async function generateEmbeddings(
   );
 
   const pending = entries
-    .map((entry) => {
-      const input = `${DOCUMENT_PREFIX}${entry.content}`;
-      return { ...entry, input, contentHash: embeddingContentHash(model, input) };
-    })
+    .map((entry) => ({ ...entry, contentHash: embeddingContentHash(model, entry.content) }))
     .filter(
       ({ entityType, entityId, contentHash }) =>
         storedHashes.get(entityKey(entityType, entityId)) !== contentHash,
@@ -351,7 +356,7 @@ export async function generateEmbeddings(
     try {
       vectors = await embedWithRetry(
         embedBatch,
-        batch.map(({ input }) => input),
+        batch.map(({ content }) => content),
         retryDelayMs,
       );
     } catch (error) {
