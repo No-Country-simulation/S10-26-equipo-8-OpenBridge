@@ -15,7 +15,8 @@
     "db:load-initial": "tsx --env-file-if-exists=.env src/ingest/initial-load-cli.ts",
     "db:generate-ideas": "tsx --env-file-if-exists=.env src/ideas/generate-cli.ts",
     "db:sync": "tsx --env-file-if-exists=.env src/ingest/sync-cli.ts",
-    "db:embed": "tsx --env-file-if-exists=.env src/ingest/embed-cli.ts"
+    "db:embed": "tsx --env-file-if-exists=.env src/ingest/embed-cli.ts",
+    "db:search": "tsx --env-file-if-exists=.env src/search/search-cli.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.3.2",
