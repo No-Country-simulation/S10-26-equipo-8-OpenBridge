@@ -85,6 +85,21 @@ En Windows conviene Ollama nativo: usa la GPU (también AMD) y genera unas 3 ide
 
 Necesita `DATABASE_URL` y `GITHUB_TOKEN` en `backend/.env`. Para Ollama se usan, si están definidas, `OLLAMA_BASE_URL` (por defecto `http://localhost:11434`) y `OLLAMA_MODEL` (por defecto `qwen2.5:7b`). Si una respuesta no cumple el esquema, se reintenta una vez; si vuelve a fallar, se descarta y queda en `backend/reports/ideas-report.json` con el motivo y la respuesta del modelo.
 
+## Búsqueda por significado
+
+`POST /api/v1/search` devuelve los repositorios e ideas aprobadas más parecidos en significado a un texto, con su similitud coseno (1 es idéntico; con `bge-m3`, lo relevante suele estar entre 0,4 y 0,7) y su categoría. Las ideas se filtran por la categoría y la salud de su repositorio.
+
+```bash
+curl -X POST http://localhost:4000/api/v1/search -H "Content-Type: application/json" \
+  -d '{"query":"login único para empresas","limit":5,"categories":["auth"],"minHealth":60}'
+```
+
+Vectoriza la consulta con Ollama (`bge-m3`): si Ollama no responde, contesta `503 EMBEDDINGS_UNAVAILABLE`. Antes hay que generar los vectores del catálogo con `npm run db:embed -w backend`. Para probar consultas sin levantar el servidor:
+
+```bash
+npm run db:search -w backend -- "login único para empresas" --category auth --min-health 60
+```
+
 ## Scripts (desde la raíz)
 
 | Script                 | Qué hace                                                            |
