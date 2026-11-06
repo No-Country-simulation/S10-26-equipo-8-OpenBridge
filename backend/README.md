@@ -33,3 +33,43 @@ Si GitHub rechaza un lote, el proceso lo divide y reintenta con grupos menores.
 Al finalizar, genera `backend/reports/initial-load-report.json` con el resultado
 y el detalle de cada repositorio que no pudo cargarse. El comando termina con
 error si no se alcanza el 98 %.
+
+# Sincronización diaria (OB-13)
+
+`npm run db:sync -w backend` ejecuta el pipeline completo y deja el registro en
+`sync_run`:
+
+1. **Extraer y recalcular salud:** `syncRepos` consulta en GitHub los
+   repositorios de `seed/repos.yaml`, recalcula su salud y los guarda por lote.
+2. **Generar vectores:** crea el texto de cada repositorio y pide sus embeddings
+   a Ollama (`nomic-embed-text`, 768 dimensiones).
+3. **Cerrar el registro:** la ejecución queda `COMPLETED`, o `FAILED` con el
+   error si falla una etapa. Las métricas ya guardadas no se revierten, y al
+   relanzar se retoman los repositorios pendientes.
+
+La duración es `finished_at - started_at`. El comando termina con error si algún
+repositorio falla, para que Actions marque la ejecución parcial.
+
+## Ejecución programada y manual
+
+`.github/workflows/daily-sync.yml` corre todos los días a las **03:00 UTC**. Para
+forzarla: **Actions → Daily catalog sync → Run workflow**. Ambos disparadores
+ejecutan el mismo comando y nunca corren dos a la vez.
+
+Secrets requeridos en **Settings → Secrets and variables → Actions**:
+
+- `DATABASE_URL`: PostgreSQL con pgvector.
+- `CATALOG_GITHUB_TOKEN`: token con lectura de repositorios públicos (llega al
+  proceso como `GITHUB_TOKEN`).
+
+## Ejecutar en local
+
+```powershell
+npm run db:up
+npm run db:migrate -w backend
+ollama pull nomic-embed-text
+npm run db:sync -w backend
+```
+
+Ollama se usa en `http://127.0.0.1:11434` por defecto; se puede cambiar con
+`OLLAMA_BASE_URL` y `OLLAMA_EMBEDDING_MODEL`.
