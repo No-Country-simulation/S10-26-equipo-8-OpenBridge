@@ -20,7 +20,7 @@ const chip =
 
 function FlowStep({ name, slug }: { name: string; slug?: string }) {
   return (
-    <span className={`${chip} font-medium`}>
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-md bg-background/60 px-2.5 text-[13px] font-medium text-muted-foreground">
       {slug ? (
         <CategoryDot slug={slug} />
       ) : (
@@ -56,7 +56,7 @@ export function AssistantPanel() {
       <div className="flex flex-col gap-2 lg:w-125 lg:shrink-0">
         <h2
           id="assistant-title"
-          className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-foreground md:text-[28px] md:leading-9"
+          className="text-2xl font-semibold leading-8 tracking-[-0.02em] text-foreground"
         >
           Contanos qué estás construyendo
         </h2>
