@@ -4,17 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from 'cn';
 
-const links = [
-  { href: '/catalogo', label: 'Catálogo' },
-  { href: '/asistente', label: 'Asistente' },
-];
+import { navLinks } from './nav-links';
 
 export function HeaderNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Principal" className="flex h-14 items-center gap-4 sm:gap-6">
-      {links.map(({ href, label }) => {
+    <nav aria-label="Principal" className="hidden h-14 items-center gap-6 md:flex">
+      {navLinks.map(({ href, label }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);
 
         return (
