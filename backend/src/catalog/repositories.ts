@@ -27,13 +27,15 @@ function textSearch(q: string) {
   const english = sql`websearch_to_tsquery('english', ${q})`;
   const spanish = sql`websearch_to_tsquery('spanish', ${q})`;
   // Coincidencias parciales del nombre ("meili" → meilisearch), que el
-  // texto completo no encuentra porque trabaja con palabras enteras.
+  // texto completo no encuentra porque trabaja con palabras enteras. Suman
+  // un bonus moderado: del orden de una coincidencia en el nombre (peso A),
+  // para no tapar coincidencias reales en la descripción.
   const partialName = sql`${repository.name} ILIKE ${`%${escapeLike(q)}%`}`;
 
   return {
     matches: sql`(${document} @@ ${english} OR ${document} @@ ${spanish} OR ${partialName})`,
     rank: sql`(ts_rank(${document}, ${english}) + ts_rank(${document}, ${spanish})
-      + CASE WHEN ${partialName} THEN 1 ELSE 0 END)`,
+      + CASE WHEN ${partialName} THEN 0.5 ELSE 0 END)`,
   };
 }
 

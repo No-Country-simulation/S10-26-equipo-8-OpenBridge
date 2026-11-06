@@ -12,16 +12,18 @@ export async function getCatalogFilters(db: Db): Promise<CatalogFilters> {
   const count = sql<number>`count(*)::int`;
 
   const [languages, licenses, categories, levels, [stars]] = await Promise.all([
+    // El filtro no distingue mayúsculas: se agrupa igual, así la cantidad de
+    // cada opción coincide con lo que devuelve al aplicarla.
     db
-      .select({ value: sql<string>`${repository.primaryLanguage}`, count })
+      .select({ value: sql<string>`min(${repository.primaryLanguage})`, count })
       .from(repository)
       .where(isNotNull(repository.primaryLanguage))
-      .groupBy(repository.primaryLanguage),
+      .groupBy(sql`lower(${repository.primaryLanguage})`),
     db
-      .select({ value: sql<string>`${repository.licenseSpdx}`, count })
+      .select({ value: sql<string>`min(${repository.licenseSpdx})`, count })
       .from(repository)
       .where(isNotNull(repository.licenseSpdx))
-      .groupBy(repository.licenseSpdx),
+      .groupBy(sql`lower(${repository.licenseSpdx})`),
     db
       .select({ value: category.slug, label: category.name, count })
       .from(repositoryCategory)

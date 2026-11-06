@@ -79,7 +79,7 @@ describe('filtros y búsqueda por texto del catálogo', () => {
         97,
         'ACTIVE',
         '2026-11-03',
-        'Identity and access management',
+        'Identity and access management for users',
         ['sso', 'oidc'],
       ],
       [
@@ -211,6 +211,35 @@ describe('filtros y búsqueda por texto del catálogo', () => {
       expect(res.body.meta.total).toBe(0);
     });
 
+    it('ordena por relevancia, no por popularidad', async () => {
+      // "users" está en el nombre de fastapi-users (5k estrellas) y solo en
+      // la descripción de keycloak (37k): el nombre pesa más.
+      const res = await list('q=users&sort=relevance');
+
+      expect(names(res)).toEqual(['fastapi-users', 'keycloak']);
+    });
+
+    it('trata los comodines de LIKE como texto', async () => {
+      for (const q of ['100%', 'a_b', 'c\\d']) {
+        const res = await list(`q=${encodeURIComponent(q)}`);
+        expect(res.status).toBe(200);
+        expect(res.body.meta.total).toBe(0);
+      }
+    });
+
+    it('no falla con un texto que es solo una palabra vacía', async () => {
+      const res = await list('q=de');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('ignora los parámetros vacíos', async () => {
+      const res = await list('q=&language=&license=&category=');
+
+      expect(res.status).toBe(200);
+      expect(res.body.meta.total).toBe(7);
+    });
+
     it('rechaza un término de menos de 2 caracteres', async () => {
       const res = await list('q=a');
 
@@ -241,6 +270,10 @@ describe('filtros y búsqueda por texto del catálogo', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('INVALID_QUERY');
+    });
+
+    it('rechaza un filtro repetido', async () => {
+      expect((await list('language=Rust&language=Go')).status).toBe(400);
     });
 
     it('rechaza un orden desconocido', async () => {

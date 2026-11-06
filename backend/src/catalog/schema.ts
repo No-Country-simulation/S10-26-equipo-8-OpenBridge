@@ -5,17 +5,26 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
 export const MIN_QUERY_LENGTH = 2;
+export const MAX_QUERY_LENGTH = 200;
+export const MAX_FILTER_LENGTH = 50;
 export const REPOSITORY_SORTS = ['health', 'stars', 'updated', 'relevance'] as const;
+
+// Un parámetro vacío (`?q=` al borrar el buscador) equivale a no mandarlo.
+const optionalText = (schema: z.ZodString) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    schema.optional(),
+  );
 
 // Query de GET /api/v1/repositories. Un tamaño de página mayor al máximo no
 // es un error: se limita a MAX_PAGE_SIZE. Sin `sort`, con texto de búsqueda
 // ordena por relevancia y sin texto, por salud.
 export const listRepositoriesQuerySchema = z
   .object({
-    category: z.string().trim().toLowerCase().min(1).optional(),
-    language: z.string().trim().min(1).max(50).optional(),
-    license: z.string().trim().min(1).max(50).optional(),
-    q: z.string().trim().min(MIN_QUERY_LENGTH).max(200).optional(),
+    category: optionalText(z.string().trim().toLowerCase()),
+    language: optionalText(z.string().trim().max(MAX_FILTER_LENGTH)),
+    license: optionalText(z.string().trim().max(MAX_FILTER_LENGTH)),
+    q: optionalText(z.string().trim().min(MIN_QUERY_LENGTH).max(MAX_QUERY_LENGTH)),
     sort: z.enum(REPOSITORY_SORTS).optional(),
     page: z.coerce.number().int().min(1).default(1),
     size: z.coerce
