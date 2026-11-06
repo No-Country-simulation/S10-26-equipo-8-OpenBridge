@@ -87,7 +87,7 @@ Necesita `DATABASE_URL` y `GITHUB_TOKEN` en `backend/.env`. Para Ollama se usan,
 
 ## Búsqueda por significado
 
-`POST /api/v1/search` devuelve los repositorios e ideas aprobadas más parecidos en significado a un texto, con su similitud (de 0 a 1) y su categoría. Las ideas se filtran por la categoría y la salud de su repositorio.
+`POST /api/v1/search` devuelve los repositorios e ideas aprobadas más parecidos en significado a un texto, con su similitud coseno (1 es idéntico; con `bge-m3`, lo relevante suele estar entre 0,4 y 0,7) y su categoría. Las ideas se filtran por la categoría y la salud de su repositorio.
 
 ```bash
 curl -X POST http://localhost:4000/api/v1/search -H "Content-Type: application/json" \

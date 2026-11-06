@@ -39,9 +39,13 @@ export function createApp({
       next(error);
       return;
     }
-    // JSON mal formado en el cuerpo: lo detecta express.json() antes de la ruta.
-    if (error instanceof SyntaxError && 'type' in error && error.type === 'entity.parse.failed') {
-      res.status(400).json(apiError('INVALID_QUERY', 'El cuerpo no es un JSON válido'));
+    // Errores del cuerpo que detecta express.json() antes de la ruta: JSON
+    // mal formado (400), demasiado grande (413), charset no soportado (415).
+    const status = typeof error?.status === 'number' ? error.status : 500;
+    if (status >= 400 && status < 500) {
+      const message =
+        error.type === 'entity.parse.failed' ? 'El cuerpo no es un JSON válido' : error.message;
+      res.status(status).json(apiError('INVALID_QUERY', message));
       return;
     }
     console.error(error);

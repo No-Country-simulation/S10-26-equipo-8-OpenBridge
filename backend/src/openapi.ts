@@ -15,8 +15,12 @@ import {
 // Los cuerpos de respuesta salen de los mismos esquemas Zod que usa el
 // código, así la documentación no se desincroniza. OpenAPI 3.1 usa JSON
 // Schema 2020-12, el mismo formato que genera Zod.
-function jsonSchema(schema: z.ZodType) {
-  const generated: Record<string, unknown> = z.toJSONSchema(schema, { target: 'draft-2020-12' });
+// io 'input' para cuerpos de request: los campos con default son opcionales.
+function jsonSchema(schema: z.ZodType, io: 'input' | 'output' = 'output') {
+  const generated: Record<string, unknown> = z.toJSONSchema(schema, {
+    target: 'draft-2020-12',
+    io,
+  });
   // $schema sobra adentro de un documento OpenAPI.
   delete generated.$schema;
   return generated;
@@ -86,6 +90,7 @@ export const openApiDocument = {
           '200': json('SearchResponse', 'Resultados ordenados por similitud.'),
           '400': json('ApiError', 'Cuerpo inválido (código INVALID_QUERY).'),
           '404': json('ApiError', 'Alguna categoría no existe (código CATEGORY_NOT_FOUND).'),
+          '413': json('ApiError', 'El cuerpo supera los 10 KB (código INVALID_QUERY).'),
           '503': json(
             'ApiError',
             'No se pudo vectorizar la consulta: Ollama no responde (código EMBEDDINGS_UNAVAILABLE).',
@@ -96,7 +101,7 @@ export const openApiDocument = {
   },
   components: {
     schemas: {
-      SearchRequest: jsonSchema(searchRequestSchema),
+      SearchRequest: jsonSchema(searchRequestSchema, 'input'),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
       ApiError: jsonSchema(apiErrorSchema),

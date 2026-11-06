@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app.js';
@@ -87,6 +88,56 @@ describe('búsqueda por significado', () => {
       vector: vectorWithSimilarity(0.92, 20),
       model: 'bge-m3',
     });
+
+    // Lo que nunca tiene que aparecer, aunque sea lo más parecido: una idea
+    // en borrador y vectores huérfanos (entity_id no tiene FK).
+    const [draft] = await t.db
+      .insert(integrationIdea)
+      .values({
+        repositoryId: ids.keycloak,
+        title: 'Idea en borrador',
+        summary: 'Todavía no se revisó.',
+        integrationType: 'SDK',
+        difficulty: 'LOW',
+        status: 'DRAFT',
+        source: 'LLM',
+      })
+      .returning();
+    const hidden: Array<['REPOSITORY' | 'INTEGRATION_IDEA', string, number]> = [
+      ['INTEGRATION_IDEA', draft.id, 0.99],
+      ['REPOSITORY', randomUUID(), 0.98],
+      ['INTEGRATION_IDEA', randomUUID(), 0.97],
+    ];
+    for (const [index, [entityType, entityId, similarity]] of hidden.entries()) {
+      await upsertEmbedding(t.db, {
+        entityType,
+        entityId,
+        content: 'oculto',
+        vector: vectorWithSimilarity(similarity, 30 + index),
+        model: 'bge-m3',
+      });
+    }
+
+    // Idea aprobada de un repo con salud baja (authelia, 55).
+    const [lowHealthIdea] = await t.db
+      .insert(integrationIdea)
+      .values({
+        repositoryId: ids.authelia,
+        title: 'Idea de authelia',
+        summary: 'Portal con login único.',
+        integrationType: 'DOCKER',
+        difficulty: 'LOW',
+        status: 'APPROVED',
+        source: 'HUMAN',
+      })
+      .returning();
+    await upsertEmbedding(t.db, {
+      entityType: 'INTEGRATION_IDEA',
+      entityId: lowHealthIdea.id,
+      content: lowHealthIdea.title,
+      vector: vectorWithSimilarity(0.3, 40),
+      model: 'bge-m3',
+    });
   });
 
   afterAll(async () => {
@@ -158,7 +209,24 @@ describe('búsqueda por significado', () => {
         { query: 'sso', limit: 10, types: ['INTEGRATION_IDEA'] },
         { embedQuery },
       ))!;
-      expect(titles(onlyIdeas)).toEqual(['SSO para el portal de clientes']);
+      expect(titles(onlyIdeas)).toEqual(['SSO para el portal de clientes', 'Idea de authelia']);
+    });
+
+    it('no devuelve ideas en borrador ni vectores de entidades borradas', async () => {
+      const results = (await searchCatalog(t.db, { query: 'sso', limit: 20 }, { embedQuery }))!;
+
+      expect(titles(results)).not.toContain('Idea en borrador');
+      expect(results).toHaveLength(7);
+    });
+
+    it('filtra las ideas por la salud de su repositorio', async () => {
+      const results = (await searchCatalog(
+        t.db,
+        { query: 'sso', limit: 10, minHealth: 60, types: ['INTEGRATION_IDEA'] },
+        { embedQuery },
+      ))!;
+
+      expect(titles(results)).toEqual(['SSO para el portal de clientes']);
     });
 
     it('devuelve null si una categoría pedida no existe', async () => {
@@ -219,6 +287,15 @@ describe('búsqueda por significado', () => {
       expect(res.body.error.code).toBe('INVALID_QUERY');
     });
 
+    it('responde 413 si el cuerpo es demasiado grande', async () => {
+      const res = await request(app)
+        .post('/api/v1/search')
+        .send({ query: 'sso', padding: 'x'.repeat(20_000) });
+
+      expect(res.status).toBe(413);
+      expect(res.body.error.code).toBe('INVALID_QUERY');
+    });
+
     it('responde 404 si una categoría no existe', async () => {
       const res = await request(app)
         .post('/api/v1/search')
@@ -247,6 +324,8 @@ describe('búsqueda por significado', () => {
 
       expect(res.body.paths['/api/v1/search'].post.responses).toHaveProperty('503');
       expect(res.body.components.schemas).toHaveProperty('SearchResponse');
+      // En el request, solo `query` es obligatorio: limit tiene default.
+      expect(res.body.components.schemas.SearchRequest.required).toEqual(['query']);
     });
   });
 });

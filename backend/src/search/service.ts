@@ -52,9 +52,11 @@ export async function searchCatalog(
     THEN ${embedding.entityId} ELSE ${integrationIdea.repositoryId} END`;
 
   const rows = await db.transaction(async (tx) => {
-    // HNSW filtra después de traer a los vecinos más cercanos: con un filtro
-    // estricto podría devolver menos de `limit`. El escaneo iterativo
-    // (pgvector 0.8) sigue buscando hasta completarlos.
+    // Hoy, con los JOIN y el catálogo chico, Postgres recorre todos los
+    // vectores y ordena: la búsqueda es exacta. Si con más datos eligiera el
+    // índice HNSW, este filtraría después de traer a los vecinos más cercanos
+    // y podría devolver menos de `limit`; el escaneo iterativo (pgvector 0.8)
+    // sigue buscando hasta completarlos. Ver test/search/iterative-scan.test.ts.
     await tx.execute(sql`SET LOCAL hnsw.iterative_scan = relaxed_order`);
     return tx
       .select({

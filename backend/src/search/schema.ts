@@ -19,7 +19,8 @@ export type SearchRequest = z.input<typeof searchRequestSchema>;
 export const searchResultSchema = z.object({
   type: z.enum(embeddingEntityType.enumValues),
   id: z.uuid(),
-  // Similitud coseno con la consulta: 1 es idéntico, 0 no tiene relación.
+  // Similitud coseno con la consulta: 1 es idéntico; cerca de 0 (o negativa)
+  // no tiene relación. Con bge-m3, lo relevante suele estar entre 0,4 y 0,7.
   similarity: z.number().min(-1).max(1),
   // Repos: full name y descripción. Ideas: título y resumen.
   title: z.string(),
