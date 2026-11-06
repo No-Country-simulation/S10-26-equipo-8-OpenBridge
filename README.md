@@ -70,13 +70,18 @@ Los tests de base de datos crean una base temporal por archivo y le aplican las 
 
 ## Ideas de integración con IA
 
-El generador lee el README de cada repo y le pide a `qwen2.5:7b` (Ollama, vía LangChain.js) de 1 a 3 ideas en borrador que cumplan el esquema. Las instrucciones y los 3 ejemplos de referencia están versionados en `backend/prompts/ideas/`. Si cambiás las instrucciones, creá una versión nueva (`v2.md`) en lugar de editar la actual.
+El generador lee el README de cada repo y le pide a `qwen2.5:7b` (Ollama, vía LangChain.js) de 1 a 3 ideas en borrador que cumplan el esquema.
+
+Cada versión de las instrucciones vive en `backend/prompts/ideas/<versión>/`, con un `system.md` y 3 ejemplos de referencia en `examples/`. Para cambiar las instrucciones, creá una carpeta nueva (`v3/`) en lugar de editar una existente: así se pueden comparar sobre los mismos repos con `--prompt`. Los ejemplos tienen que ser herramientas que **no** estén en el catálogo, porque si no, el modelo mezcla el README del ejemplo con el real (un test lo controla).
 
 ```bash
 ollama pull qwen2.5:7b                                       # una sola vez
 npm run db:generate-ideas -w backend -- --limit 5            # repos sin ideas, los más populares primero
 npm run db:generate-ideas -w backend -- --repo supabase/supabase
+npm run db:generate-ideas -w backend -- --limit 3 --prompt v1   # generar con otra versión
 ```
+
+En Windows conviene Ollama nativo: usa la GPU (también AMD) y genera unas 3 ideas cada 10 segundos. Para instalarlo y verificar que use la GPU, seguí [docs/ia/ollama-local.md](docs/ia/ollama-local.md).
 
 Necesita `DATABASE_URL` y `GITHUB_TOKEN` en `backend/.env`. Para Ollama se usan, si están definidas, `OLLAMA_BASE_URL` (por defecto `http://localhost:11434`) y `OLLAMA_MODEL` (por defecto `qwen2.5:7b`). Si una respuesta no cumple el esquema, se reintenta una vez; si vuelve a fallar, se descarta y queda en `backend/reports/ideas-report.json` con el motivo y la respuesta del modelo.
 

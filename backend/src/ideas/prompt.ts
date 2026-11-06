@@ -3,11 +3,20 @@ import { z } from 'zod';
 import type { ChatMessage } from './model.js';
 import { generatedIdeasSchema, type GeneratedIdea } from './schema.js';
 
-// Las instrucciones viven en backend/prompts/ideas/ para versionarlas y
-// revisarlas en los PR. Desde src/ideas o dist/ideas la ruta es la misma.
+// Las instrucciones viven en backend/prompts/ideas/<versión>/ (system.md y
+// examples/) para versionarlas y revisarlas en los PR. Una versión no se
+// edita: se crea otra, así se pueden comparar. Desde src/ideas o dist/ideas
+// la ruta es la misma.
 const PROMPTS_DIR = new URL('../../prompts/ideas/', import.meta.url);
 
-export const IDEA_PROMPT_VERSION = 'v1';
+export const IDEA_PROMPT_VERSION = 'v2';
+
+export function listIdeaPromptVersions(): string[] {
+  return readdirSync(PROMPTS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^v\d+$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+}
 
 export interface RepoContext {
   fullName: string;
@@ -33,8 +42,12 @@ export interface IdeaPrompt {
 export const ideasJsonSchema = z.toJSONSchema(generatedIdeasSchema, { io: 'input' });
 
 export function loadIdeaPrompt(version = IDEA_PROMPT_VERSION): IdeaPrompt {
-  const system = readFileSync(new URL(`${version}.md`, PROMPTS_DIR), 'utf-8');
-  const examplesDir = new URL('examples/', PROMPTS_DIR);
+  if (!listIdeaPromptVersions().includes(version)) {
+    throw new Error(`No existe la versión de prompt "${version}" en backend/prompts/ideas/`);
+  }
+  const versionDir = new URL(`${version}/`, PROMPTS_DIR);
+  const system = readFileSync(new URL('system.md', versionDir), 'utf-8');
+  const examplesDir = new URL('examples/', versionDir);
   const examples = readdirSync(examplesDir)
     .filter((file) => file.endsWith('.json'))
     .sort()

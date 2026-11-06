@@ -20,7 +20,26 @@ export interface OllamaIdeaModelOptions {
   model?: string;
 }
 
+// Una respuesta normal tarda segundos en GPU. Incluye la primera carga del
+// modelo en memoria, que puede llevar más de un minuto.
+const REQUEST_TIMEOUT_MS = 3 * 60 * 1000;
+
 const LANGCHAIN_ROLES = { system: 'system', user: 'human', assistant: 'ai' } as const;
+
+// ChatOllama ignora el AbortSignal: la solicitud sigue viva en Ollama, pero
+// el generador deja de esperarla y pasa al próximo repo. Lo que corta la
+// generación en el servidor es numPredict.
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`El modelo no respondió en ${ms / 1000} s`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export function createOllamaIdeaModel({
   format,
@@ -32,16 +51,24 @@ export function createOllamaIdeaModel({
     model,
     format,
     // Ollama usa un contexto chico por defecto y recorta en silencio lo que
-    // no entra: sin esto, el README llega cortado y el modelo inventa.
-    numCtx: 8192,
+    // no entra, empezando por las instrucciones. El prompt ocupa ~6.000
+    // tokens; el reintento le suma la respuesta anterior (hasta numPredict) y
+    // la corrección, y la salida necesita su lugar. qwen2.5:7b entra en 8 GB
+    // de VRAM con este contexto.
+    numCtx: 12_288,
+    // Con la salida JSON forzada, un modelo chico puede entrar en bucle y no
+    // parar nunca. 3 ideas ocupan ~1.000 tokens: si se pasa, la respuesta
+    // queda cortada, no valida y el generador reintenta.
+    numPredict: 2048,
     temperature: 0.2,
   });
 
   return {
     name: model,
     complete: async (messages) => {
-      const response = await chat.invoke(
-        messages.map(({ role, content }) => [LANGCHAIN_ROLES[role], content] as const),
+      const response = await withTimeout(
+        chat.invoke(messages.map(({ role, content }) => [LANGCHAIN_ROLES[role], content] as const)),
+        REQUEST_TIMEOUT_MS,
       );
       return response.text;
     },

@@ -54,8 +54,27 @@ export const newIntegrationIdeaSchema = ideaContentSchema
 // Lo que tiene que devolver el modelo (OB-18): de 1 a 3 ideas, sin los campos
 // que completa el código. connectsWith queda vacío porque el modelo no conoce
 // los ids de otros repos; lo carga la curaduría.
+//
+// Los topes de largo no son estéticos: Ollama fuerza la salida a este esquema
+// y una lista sin máximo deja al modelo enumerando sin fin
+// ("tensorflow-serve-models-api-v1", "v2"... "v183") hasta cortarse.
 export const generatedIdeasSchema = z.object({
-  ideas: z.array(ideaContentSchema.superRefine(requireWebhookTriggers)).min(1).max(3),
+  ideas: z
+    .array(
+      ideaContentSchema
+        .extend({
+          title: nonEmpty.max(100),
+          // Sin valor por defecto a propósito: un campo opcional en el
+          // esquema forzado el modelo lo saltea siempre. Así tiene que
+          // escribir el fragmento (o null) y los disparadores (o []).
+          triggers: z.array(triggerSchema).max(5),
+          snippet: snippetSchema.nullable(),
+          stackCompatibility: z.array(nonEmpty.max(30)).min(1).max(5),
+        })
+        .superRefine(requireWebhookTriggers),
+    )
+    .min(1)
+    .max(3),
 });
 
 export type NewIntegrationIdeaInput = z.input<typeof newIntegrationIdeaSchema>;
