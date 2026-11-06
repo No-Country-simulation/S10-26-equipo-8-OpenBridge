@@ -32,7 +32,9 @@ function FlowStep({ name, slug }: { name: string; slug?: string }) {
 }
 
 function FlowArrow() {
-  return <ArrowRight className="size-3 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />;
+  return (
+    <ArrowRight className="size-3 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />
+  );
 }
 
 export function AssistantPanel() {
@@ -61,13 +63,11 @@ export function AssistantPanel() {
           Contanos qué estás construyendo
         </h2>
         <p className="max-w-110 text-[15px] leading-[23px] text-muted-foreground">
-          El asistente busca en el catálogo y te propone una arquitectura con herramientas
-          concretas y cómo conectarlas.
+          El asistente busca en el catálogo y te propone una arquitectura con herramientas concretas
+          y cómo conectarlas.
         </p>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Ejemplo · E-commerce B2B de logística
-        </p>
+        <p className="mt-4 text-xs text-muted-foreground">Ejemplo · E-commerce B2B de logística</p>
         <div className="flex flex-wrap items-center gap-2" aria-hidden="true">
           <FlowStep name="Next.js" />
           <FlowArrow />
@@ -99,7 +99,8 @@ export function AssistantPanel() {
             maxLength={MAX_LENGTH}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              // Enter envía; Shift + Enter agrega un salto de línea.
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 if (isValid) formRef.current?.requestSubmit();
               }
@@ -129,7 +130,7 @@ export function AssistantPanel() {
         <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p id="assistant-hint" aria-live="polite" className="text-xs text-muted-foreground">
             {isValid
-              ? 'Se abre en el Asistente · ⌘ Enter para enviar'
+              ? 'Se abre en el Asistente · Enter para enviar, Shift + Enter para salto de línea'
               : `Escribí al menos ${MIN_LENGTH} caracteres para continuar`}
           </p>
           <Button type="submit" disabled={!isValid} className="h-10 rounded-md px-4">

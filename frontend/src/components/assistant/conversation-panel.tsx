@@ -39,6 +39,8 @@ const fieldClass =
 type Props = {
   // Lo que se envió en la última consulta; null mientras no hay conversación.
   submitted: string | null;
+  // Texto que llega desde el home sin poder enviarse (muy corto o muy largo).
+  initialDraft?: string;
   loadingStage: ProposalStage | null;
   proposal?: Proposal;
   onSubmit: (description: string) => void;
@@ -46,22 +48,23 @@ type Props = {
   onRetry: () => void;
 };
 
-function sendOnModEnter(e: KeyboardEvent, send: () => void) {
-  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-    e.preventDefault();
-    send();
-  }
+// Enter envía; Shift + Enter agrega un salto de línea. No actúa mientras un IME compone texto.
+function sendOnEnter(e: KeyboardEvent, send: () => void) {
+  if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+  e.preventDefault();
+  send();
 }
 
 export function ConversationPanel({
   submitted,
+  initialDraft = '',
   loadingStage,
   proposal,
   onSubmit,
   onStop,
   onRetry,
 }: Props) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initialDraft);
   const [adjust, setAdjust] = useState('');
   const [industry, setIndustry] = useState('');
   const [scale, setScale] = useState('');
@@ -71,10 +74,11 @@ export function ConversationPanel({
   const loading = loadingStage !== null;
 
   const tooShort = draft.trim().length < MIN_DESCRIPTION;
+  const tooLong = draft.trim().length > MAX_DESCRIPTION;
 
   // Los datos de "Afinar contexto" viajan dentro de la descripción: el contrato solo tiene ese campo.
   function sendFirst() {
-    if (tooShort || loading) return;
+    if (tooShort || tooLong || loading) return;
     const context = [
       industry && `Industria: ${industry}.`,
       scale && `Escala: ${scale}.`,
@@ -119,9 +123,8 @@ export function ConversationPanel({
             id="description"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => sendOnModEnter(e, sendFirst)}
+            onKeyDown={(e) => sendOnEnter(e, sendFirst)}
             rows={4}
-            maxLength={MAX_DESCRIPTION}
             aria-describedby="description-hint"
             placeholder="Ej.: SaaS de turnos médicos con pagos online, multi-tenant"
             className="w-full resize-y rounded-lg border border-border bg-background p-3 text-[15px] leading-6 outline-none placeholder:text-muted-foreground focus-visible:border-foreground/40"
@@ -129,11 +132,13 @@ export function ConversationPanel({
           <div className="flex items-center justify-between gap-3">
             <p
               id="description-hint"
-              className={`text-xs ${tooShort && draft.length > 0 ? 'text-health-moderate' : 'text-muted-foreground'}`}
+              className={`text-xs ${(tooShort && draft.length > 0) || tooLong ? 'text-health-moderate' : 'text-muted-foreground'}`}
             >
-              {tooShort
-                ? `Escribí al menos ${MIN_DESCRIPTION} caracteres: qué vendés, quiénes lo usan y a qué escala.`
-                : '⌘ Enter para enviar'}
+              {tooLong
+                ? `La descripción supera los ${MAX_DESCRIPTION.toLocaleString('es-AR')} caracteres: acortala para enviarla.`
+                : tooShort
+                  ? `Escribí al menos ${MIN_DESCRIPTION} caracteres: qué vendés, quiénes lo usan y a qué escala.`
+                  : 'Enter para enviar · Shift + Enter para salto de línea'}
             </p>
             <span className="font-mono text-xs text-muted-foreground tabular-nums">
               {draft.trim().length.toLocaleString('es-AR')}/
@@ -216,7 +221,7 @@ export function ConversationPanel({
         <Button
           type="button"
           onClick={sendFirst}
-          disabled={tooShort}
+          disabled={tooShort || tooLong}
           className="h-10 w-fit gap-2 px-4"
         >
           Armar propuesta
@@ -306,14 +311,16 @@ export function ConversationPanel({
             id="adjust"
             value={adjust}
             onChange={(e) => setAdjust(e.target.value)}
-            onKeyDown={(e) => sendOnModEnter(e, sendAdjust)}
+            onKeyDown={(e) => sendOnEnter(e, sendAdjust)}
             rows={2}
             disabled={loading}
             placeholder={'Pedí un ajuste: "cambiá Keycloak por algo más liviano"'}
             className="resize-none bg-transparent text-[13px] leading-5 outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           <div className="flex items-center justify-end gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:inline">⌘ Enter</span>
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Enter para enviar
+            </span>
             <button
               type="submit"
               aria-label="Enviar ajuste"
