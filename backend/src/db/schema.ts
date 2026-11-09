@@ -155,9 +155,10 @@ export const integrationIdea = pgTable(
   ],
 );
 
-// Dimensión de nomic-embed-text (Ollama), decisión S3. Cambiar de modelo
-// implica una migración nueva y regenerar todos los embeddings.
-export const EMBEDDING_DIMENSIONS = 768;
+// Dimensión de bge-m3 (Ollama), elegido en OB-12 en lugar de nomic-embed-text
+// (768). Cambiar de modelo implica una migración nueva y regenerar todos los
+// embeddings.
+export const EMBEDDING_DIMENSIONS = 1024;
 
 export const embeddingEntityType = pgEnum('embedding_entity_type', [
   'REPOSITORY',
@@ -175,6 +176,10 @@ export const embedding = pgTable(
     content: text('content').notNull(),
     vector: vector('vector', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
     model: text('model').notNull(),
+    // sha256 del modelo y el texto enviado. Si no cambió, el
+    // vector no se recalcula (ver src/ingest/embeddings.ts). Null en los
+    // vectores previos a OB-12, que se regeneran en la próxima corrida.
+    contentHash: text('content_hash'),
     ...timestamps,
   },
   (t) => [

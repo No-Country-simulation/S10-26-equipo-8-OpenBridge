@@ -1,0 +1,35 @@
+{
+  "repository": {
+    "fullName": "binwiederhier/ntfy",
+    "description": "Send push notifications to your phone or desktop using PUT/POST",
+    "primaryLanguage": "Go",
+    "topics": ["notifications", "push", "self-hosted"],
+    "readme": "# ntfy\n\nntfy sends push notifications to phones and desktops from any script or app with a plain HTTP request. Subscribers listen to a topic in the mobile or web app.\n\n## Publish\n\n    curl -d \"Backup finished\" ntfy.sh/mytopic\n\nSet a title with the `Title` header and the urgency with the `Priority` header (`min`, `low`, `default`, `high`, `urgent`).\n\n## CLI\n\n    ntfy publish mytopic \"Backup finished\"\n\n## Self-hosting\n\n    docker run -p 80:80 -it binwiederhier/ntfy serve"
+  },
+  "ideas": [
+    {
+      "title": "Alertar a tesorería cuando falla una conciliación bancaria",
+      "summary": "Publicar un aviso urgente en un tema de ntfy desde el proceso de conciliación de una fintech, para que el equipo de tesorería lo reciba en el celular apenas falla.",
+      "integrationType": "REST_API",
+      "triggers": [],
+      "snippet": {
+        "language": "typescript",
+        "code": "await fetch('https://ntfy.miempresa.com/tesoreria', {\n  method: 'POST',\n  headers: { Title: 'Conciliación fallida', Priority: 'urgent' },\n  body: `No cuadró el extracto del ${fecha}`,\n});"
+      },
+      "stackCompatibility": ["node", "typescript"],
+      "difficulty": "LOW"
+    },
+    {
+      "title": "Avisar a la guardia de sistemas al terminar el respaldo nocturno",
+      "summary": "Agregar una línea al script de respaldo de un hospital para que la guardia de sistemas reciba en el celular la confirmación de que terminó, sin revisar logs a la mañana.",
+      "integrationType": "CLI",
+      "triggers": [],
+      "snippet": {
+        "language": "bash",
+        "code": "pg_dump historias > /backups/historias.sql \\\n  && ntfy publish guardia-sistemas \"Respaldo nocturno terminado\""
+      },
+      "stackCompatibility": ["bash", "linux", "postgres"],
+      "difficulty": "LOW"
+    }
+  ]
+}

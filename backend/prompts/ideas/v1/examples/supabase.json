@@ -1,0 +1,40 @@
+{
+  "repository": {
+    "fullName": "supabase/supabase",
+    "description": "The Postgres development platform",
+    "primaryLanguage": "TypeScript",
+    "topics": ["postgres", "auth", "realtime", "storage"],
+    "readme": "# Supabase\n\nSupabase is an open source Firebase alternative built on Postgres.\n\n## Features\n\n- Hosted Postgres database\n- Authentication and authorization (email, magic links, OAuth providers)\n- Auto-generated REST and GraphQL APIs\n- Realtime subscriptions\n- Database webhooks: send table events (INSERT, UPDATE, DELETE) to an HTTP endpoint\n- Storage for large files\n\n## Client libraries\n\nInstall the JavaScript client with `npm install @supabase/supabase-js` and create a client with `createClient(url, anonKey)`.\n\nSend a magic link with `supabase.auth.signInWithOtp({ email })`.\n\nDatabase webhooks POST a JSON payload with the event `type` and the new `record`."
+  },
+  "ideas": [
+    {
+      "title": "Inicio de sesión sin contraseña con enlace mágico",
+      "summary": "Usar el cliente de Supabase para que las personas entren con un enlace enviado a su correo. Evita gestionar contraseñas y se resuelve con la configuración por defecto de Auth.",
+      "integrationType": "SDK",
+      "triggers": [],
+      "snippet": {
+        "language": "typescript",
+        "code": "import { createClient } from '@supabase/supabase-js';\n\nconst supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);\n\nawait supabase.auth.signInWithOtp({ email: 'ana@ejemplo.com' });"
+      },
+      "stackCompatibility": ["nextjs", "react", "node"],
+      "difficulty": "LOW"
+    },
+    {
+      "title": "Avisar a ventas cuando entra un pedido nuevo",
+      "summary": "Configurar un webhook de base de datos sobre la tabla de pedidos para que cada alta llegue a un endpoint propio, que notifica al equipo por Slack o correo sin consultar la base cada minuto.",
+      "integrationType": "WEBHOOK",
+      "triggers": [
+        {
+          "event": "INSERT",
+          "description": "Se insertó una fila nueva en la tabla orders"
+        }
+      ],
+      "snippet": {
+        "language": "typescript",
+        "code": "app.post('/webhooks/orders', express.json(), (req, res) => {\n  const { type, record } = req.body;\n  if (type === 'INSERT') notifySales(record);\n  res.sendStatus(200);\n});"
+      },
+      "stackCompatibility": ["node", "express", "postgres"],
+      "difficulty": "MEDIUM"
+    }
+  ]
+}

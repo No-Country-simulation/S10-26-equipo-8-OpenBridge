@@ -12,3 +12,14 @@ export async function createIntegrationIdea(db: Db, input: unknown) {
     .returning();
   return saved;
 }
+
+// Igual que createIntegrationIdea pero para varias: valida todas antes de
+// insertar y las guarda en un solo INSERT, así se guardan todas o ninguna.
+export async function createIntegrationIdeas(db: Db, inputs: unknown[]) {
+  const ideas = inputs.map((input) => newIntegrationIdeaSchema.parse(input));
+  if (ideas.length === 0) return [];
+  return db
+    .insert(integrationIdea)
+    .values(ideas.map((idea) => ({ ...idea, status: 'DRAFT' as const })))
+    .returning();
+}
