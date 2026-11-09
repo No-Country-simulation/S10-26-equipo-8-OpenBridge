@@ -1,6 +1,7 @@
 import express, { type ErrorRequestHandler } from 'express';
 import { catalogRouter } from './catalog/routes.js';
 import { apiError } from './catalog/schema.js';
+import { corsMiddleware, parseAllowedOrigins } from './cors.js';
 import type { Db } from './db/client.js';
 import { embedQuery as ollamaEmbedQuery } from './ingest/embeddings.js';
 import { openApiDocument } from './openapi.js';
@@ -13,11 +14,15 @@ import type { EmbedQuery } from './search/service.js';
 export function createApp({
   db,
   embedQuery = (text) => ollamaEmbedQuery(text),
+  allowedOrigins = parseAllowedOrigins(process.env.CORS_ORIGINS),
 }: {
   db: Db;
   embedQuery?: EmbedQuery;
+  allowedOrigins?: string[];
 }) {
   const app = express();
+
+  app.use(corsMiddleware(allowedOrigins));
 
   app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });

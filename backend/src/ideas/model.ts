@@ -1,4 +1,5 @@
 import { ChatOllama } from '@langchain/ollama';
+import { ollamaConfig } from '../ollama.js';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -43,13 +44,15 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export function createOllamaIdeaModel({
   format,
-  baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434',
+  baseUrl = ollamaConfig().baseUrl,
   model = process.env.OLLAMA_MODEL ?? 'qwen2.5:7b',
 }: OllamaIdeaModelOptions): IdeaModel {
   const chat = new ChatOllama({
     baseUrl,
     model,
     format,
+    // La clave del Ollama expuesto, si hay (ver src/ollama.ts).
+    headers: ollamaConfig().headers,
     // Ollama usa un contexto chico por defecto y recorta en silencio lo que
     // no entra, empezando por las instrucciones. El prompt ocupa ~6.000
     // tokens; el reintento le suma la respuesta anterior (hasta numPredict) y
