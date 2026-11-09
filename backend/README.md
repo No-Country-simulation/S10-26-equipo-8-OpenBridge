@@ -1,89 +1,92 @@
-# Módulo de Sincronización Automatizada (OB-13)
+# OB-42 · Registros Estructurados y Verificación de Estado
 
-Este módulo ejecuta el pipeline del catálogo de forma programada o manual: extrae métricas desde GitHub, recalcula la salud de los repositorios, genera embeddings y registra cada ejecución en `sync_run`.
+Este componente implementa el registro de logs estructurados en formato JSON y un endpoint de verificación de salud (`/health`) para el diagnóstico rápido de problemas y la medición de tiempos de respuesta en el PMV.
 
-## 📋 Tabla de Contenidos
+## 📋 Descripción de la Historia de Usuario
 
-1. [Flujo del Proceso](#-flujo-del-proceso)
-2. [Estructura de Datos (sync_run)](#-estructura-de-datos-sync_run)
-3. [Arquitectura del Código](#-arquitectura-del-código)
-4. [Estrategia de Orquestación](#-estrategia-de-orquestación)
-5. [Guía de Uso y Pruebas](#-guía-de-uso-y-pruebas)
+> **Como** integrante del equipo,  
+> **quiero** registros en formato JSON con identificador de consulta y tiempo de respuesta, más un servicio `/health`,  
+> **para** diagnosticar problemas rápido y medir los tiempos del PMV.
+
+### Detalles de la Tarea
+
+- **Prioridad:** Importante
+- **Estimación:** 2 Puntos
+- **Responsable:** Servidor (Backend)
+- **Dependencias:** OB-41
 
 ---
 
-## 🔄 Flujo del Proceso
+## 🚀 Criterios de Aceptación
 
-1. **Extraer y recalcular salud:** `syncRepos` consulta el inventario de `seed/repos.yaml` en GitHub GraphQL, calcula el puntaje de salud con las métricas actuales y persiste cada repositorio por lote.
-2. **Generar vectores:** terminada la extracción, el pipeline construye contenido semántico con los datos del repositorio y genera embeddings mediante Ollama y `nomic-embed-text`.
-3. **Cerrar el registro:** si ambas etapas terminan, el estado pasa a `COMPLETED`. Los repositorios no encontrados o con errores por alias se cuentan como fallidos. Si una etapa crítica falla, la ejecución queda `FAILED` con su error.
+### Escenario 1: Logs Estructurados de Consultas
 
-Los cambios de GitHub se guardan por lote, así que un fallo posterior al extraer no revierte métricas ya persistidas. La ejecución fallida se puede relanzar: el proceso retoma repositorios pendientes y vuelve a generar los embeddings.
+- **Dado que:** Se recibe cualquier consulta HTTP en el servidor.
+- **Cuando:** La consulta es procesada por el sistema.
+- **Entonces:** Se genera un registro en la consola en formato **JSON** que incluye obligatoriamente:
+  - Identificador único de la consulta (`requestId`).
+  - Método HTTP (`method`).
+  - Ruta o URI de la petición (`path`).
+  - Código de estado de la respuesta (`statusCode`).
+  - Duración o tiempo de respuesta en milisegundos (`durationMs`).
 
-## 🗃️ Estructura de Datos (sync_run)
+### Escenario 2: Verificación de Estado (/health) - Éxito
 
-`sync_run` conserva el estado y el progreso de cada ejecución:
+- **Dado que:** Se realiza una consulta `GET /health`.
+- **Cuando:** La base de datos está accesible y conectada correctamente.
+- **Entonces:** El servidor responde con un código de estado **200 OK**.
 
-| Campo                                         | Descripción                                          |
-| --------------------------------------------- | ---------------------------------------------------- |
-| `status`                                      | `RUNNING`, `COMPLETED` o `FAILED`                    |
-| `started_at`, `finished_at`                   | Inicio y cierre de la ejecución                      |
-| `repos_total`                                 | Repositorios incluidos                               |
-| `repos_ok`, `repos_failed`                    | Repositorios sincronizados correctamente y fallidos  |
-| `rate_limit_used`                             | Puntos de GitHub GraphQL consumidos                  |
-| `rate_limit_remaining`, `rate_limit_reset_at` | Saldo y hora de reinicio informados por GitHub       |
-| `error`                                       | Motivo de fallo de una etapa crítica, si corresponde |
+### Escenario 3: Verificación de Estado (/health) - Fallo
 
-La duración se calcula con `finished_at - started_at`. Los contadores se actualizan por lote. Si algunos repositorios fallan, se conserva su conteo aunque el pipeline complete; el comando devuelve un código de error para que Actions reporte la ejecución parcial.
+- **Dado que:** Se realiza una consulta `GET /health`.
+- **Cuando:** La base de datos **no** está accesible o se encuentra caída.
+- **Entonces:** El servidor responde con un código de estado **503 Service Unavailable**.
 
-## 🧩 Arquitectura del Código
+---
 
-- `src/ingest/sync-cli.ts`: carga el inventario y conecta sincronización, vectores y base de datos.
-- `src/ingest/sync-run.ts`: crea o retoma el registro, guarda los contadores por lote y cierra la ejecución.
-- `src/ingest/github.ts`: consulta GitHub, calcula salud y persiste métricas del repositorio.
-- `src/ingest/embeddings.ts`: crea el texto semántico, solicita vectores a Ollama en lotes y los guarda.
-- `src/db/embeddings.ts`: persiste un embedding por entidad y reemplaza el vector al regenerarlo.
-- `.github/workflows/daily-sync.yml`: define los disparadores automáticos y manuales.
+## 🛠️ Guía de Implementación de Referencia
 
-La sincronización genera embeddings para repositorios. El esquema también admite embeddings de ideas de integración, pero esta tarea no los regenera.
+### 1. Formato de Log JSON Esperado
 
-## ⏱️ Estrategia de Orquestación
+Cada petición debe generar una línea de log estructurada similar a la siguiente:
 
-GitHub Actions ejecuta el workflow a las **03:00 UTC** todos los días (`0 3 * * *`). Para forzar una ejecución, usa **Actions → Daily catalog sync → Run workflow**. Ambos disparadores llaman al mismo comando, `npm run db:sync -w backend`.
-
-El workflow evita ejecuciones concurrentes y realiza estos pasos:
-
-1. Instala dependencias con `npm ci`.
-2. Inicia Ollama y descarga `nomic-embed-text`.
-3. Aplica las migraciones de la base configurada.
-4. Ejecuta la sincronización.
-
-Configura en **Settings → Secrets and variables → Actions**:
-
-- `DATABASE_URL`: URL de PostgreSQL con pgvector.
-- `CATALOG_GITHUB_TOKEN`: token de GitHub con acceso de lectura a los repositorios públicos consultados.
-
-Actions entrega el token al proceso como `GITHUB_TOKEN`. Los secretos nunca se guardan en el repositorio.
-
-## 🧪 Guía de Uso y Pruebas
-
-Para ejecutarlo localmente, configura `backend/.env` con `DATABASE_URL` y `GITHUB_TOKEN`, inicia PostgreSQL con pgvector y Ollama, y ejecuta desde la raíz:
-
-```powershell
-npm run db:up
-npm run db:migrate -w backend
-ollama pull nomic-embed-text
-npm run db:sync -w backend
+```json
+{
+  "requestId": "c4b3a210-9f8d-4e7c-b6a5-123456789abc",
+  "method": "GET",
+  "path": "/health",
+  "statusCode": 200,
+  "durationMs": 2.4
+}
 ```
 
-Ollama usa `http://127.0.0.1:11434` por defecto. Puedes configurar `OLLAMA_BASE_URL` y `OLLAMA_EMBEDDING_MODEL`; el modelo debe generar vectores de 768 dimensiones.
+El identificador también se devuelve en la cabecera `X-Request-Id`. La duración se mide en milisegundos con decimales.
 
-Validación del backend:
+### 2. Endpoint `/health`
 
-```powershell
-npm run build -w backend
-npm run lint -w backend
-npm run test -w backend
+`GET /health` ejecuta `SELECT 1` contra PostgreSQL. Responde `200` con `{"status":"ok"}` si la consulta tiene éxito y `503` con `{"status":"error"}` si falla o falta `DATABASE_URL`. Los fallos se registran como logs JSON de error.
+
+---
+
+## 🧪 Pruebas y Verificación
+
+### Verificar logs en consola
+
+Realiza cualquier petición a la API y confirma que la terminal imprima el objeto JSON con las propiedades requeridas.
+
+### Verificar estado saludable (Base de datos UP)
+
+```bash
+curl -i http://localhost:4000/health
+# Debe retornar HTTP/1.1 200 OK
 ```
 
-Los tests de base de datos requieren Docker/PostgreSQL local, ya que crean bases temporales.
+### Verificar estado crítico (Base de datos DOWN)
+
+1. Detén temporalmente el contenedor o servicio de tu base de datos.
+2. Ejecuta la consulta:
+
+```bash
+curl -i http://localhost:4000/health
+# Debe retornar HTTP/1.1 503 Service Unavailable
+```
