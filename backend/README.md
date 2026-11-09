@@ -95,12 +95,11 @@ GitHub (por ejemplo, después de aprobar ideas). `db:sync` la corre al final.
   la consola y la corrida sigue con el lote siguiente; el comando termina con
   error para que Actions lo marque.
 
-## Logs estructurados y estado del servicio (OB-42)
+## OB-42 · Logs estructurados y verificación de estado
 
-Cada petición HTTP genera un log JSON con `requestId`, `method`, `path`,
-`statusCode` y `durationMs`. El `requestId` también se devuelve en el header
-`X-Request-Id`; `path` no incluye la query string.
+Cada petición genera un log JSON con `requestId`, `method`, `path`,
+`statusCode` y `durationMs`. `X-Request-Id` devuelve el identificador; `path`
+omite la query string.
 
-`GET /health` ejecuta `SELECT 1` contra la misma base de datos que usa la
-aplicación. Responde `200` con `{"status":"ok"}` si está disponible y `503` con
-`{"status":"error"}` si la consulta falla.
+`GET /health` consulta la base de datos: responde `200` si está disponible y
+`503` si falla.
