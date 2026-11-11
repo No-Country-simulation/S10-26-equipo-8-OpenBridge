@@ -3,6 +3,7 @@ import { capabilitiesJsonSchema, loadCapabilitiesPrompt } from './assistant/prom
 import { assistantRouter } from './assistant/routes.js';
 import { catalogRouter } from './catalog/routes.js';
 import { apiError } from './catalog/schema.js';
+import { corsMiddleware, parseAllowedOrigins } from './cors.js';
 import type { Db } from './db/client.js';
 import { createOllamaIdeaModel, type IdeaModel } from './ideas/model.js';
 import { embedQuery as ollamaEmbedQuery } from './ingest/embeddings.js';
@@ -29,12 +30,16 @@ export function createApp({
     // La misma descripción tiene que dar las mismas capacidades.
     temperature: 0,
   }),
+  allowedOrigins = parseAllowedOrigins(process.env.CORS_ORIGINS),
 }: {
   db: Db;
   embedQuery?: EmbedQuery;
   assistantModel?: IdeaModel;
+  allowedOrigins?: string[];
 }) {
   const app = express();
+
+  app.use(corsMiddleware(allowedOrigins));
 
   app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });
