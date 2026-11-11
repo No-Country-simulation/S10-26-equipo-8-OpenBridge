@@ -42,7 +42,7 @@ function Option({
   name?: string;
 }) {
   return (
-    <label className="flex h-[34px] cursor-pointer items-center gap-2.5 text-sm">
+    <label className="flex h-11 cursor-pointer items-center gap-2.5 text-sm lg:h-[34px]">
       <input
         type={type}
         name={name}
@@ -154,7 +154,7 @@ export function FiltersPanel({ filters, params }: Props) {
           <button
             type="button"
             onClick={() => setShowAllLanguages((v) => !v)}
-            className="flex h-[34px] items-center rounded-sm text-[13px] text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40"
+            className="flex h-11 items-center rounded-sm text-[13px] text-link lg:h-[34px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40"
           >
             {showAllLanguages ? 'Ver menos' : 'Ver más lenguajes'}
           </button>

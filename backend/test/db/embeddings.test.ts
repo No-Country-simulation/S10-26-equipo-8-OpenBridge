@@ -61,7 +61,7 @@ describe('almacenamiento de embeddings', () => {
         entityId: randomUUID(),
         content: 'dimensión equivocada',
         vector: [0.1, 0.2, 0.3],
-        model: 'nomic-embed-text',
+        model: 'bge-m3',
       }),
     ).rejects.toThrow();
   });
@@ -74,14 +74,14 @@ describe('almacenamiento de embeddings', () => {
       entityId,
       content: 'versión 1',
       vector: randomVector(random),
-      model: 'nomic-embed-text',
+      model: 'bge-m3',
     });
     const second = await upsertEmbedding(t.db, {
       entityType: 'INTEGRATION_IDEA',
       entityId,
       content: 'versión 2',
       vector: randomVector(random),
-      model: 'nomic-embed-text',
+      model: 'bge-m3',
     });
 
     expect(second.id).toBe(first.id);
@@ -100,7 +100,7 @@ describe('almacenamiento de embeddings', () => {
       entityId: randomUUID(),
       content: `entidad ${index}`,
       vector: randomVector(random),
-      model: 'nomic-embed-text',
+      model: 'bge-m3',
     }));
 
     beforeAll(async () => {

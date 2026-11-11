@@ -152,6 +152,25 @@ describe('runSync', () => {
     expect(run).toMatchObject({ id: failed.id, status: 'COMPLETED', reposOk: 1, error: null });
   });
 
+  it('incluye la etapa de vectores en el registro de la ejecución', async () => {
+    vi.stubGlobal('fetch', githubEcho());
+    const afterSync = vi.fn().mockRejectedValue(new Error('Ollama no disponible'));
+
+    await expect(runSync(t.db, refs('repo-1'), { token: 'test-token', afterSync })).rejects.toThrow(
+      'Ollama no disponible',
+    );
+
+    expect(afterSync).toHaveBeenCalledOnce();
+    const [run] = await t.db.select().from(syncRun);
+    expect(run).toMatchObject({
+      status: 'FAILED',
+      reposOk: 1,
+      reposFailed: 0,
+      error: 'Ollama no disponible',
+      finishedAt: expect.any(Date),
+    });
+  });
+
   it('no retoma una ejecución sin actividad hace más de 12 horas', async () => {
     const startedAt = new Date(Date.now() - 14 * HOUR);
     const [abandoned] = await t.db

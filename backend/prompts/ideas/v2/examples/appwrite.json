@@ -1,0 +1,49 @@
+{
+  "repository": {
+    "fullName": "appwrite/appwrite",
+    "description": "Backend platform for web, mobile and Flutter developers",
+    "primaryLanguage": "TypeScript",
+    "topics": ["backend", "auth", "database", "storage"],
+    "readme": "# Appwrite\n\nAppwrite is an open source backend platform that bundles authentication, databases, storage, functions and realtime in one API.\n\n## Web SDK\n\nInstall with `npm install appwrite` and create a client:\n\n    const client = new Client().setEndpoint('https://cloud.appwrite.io/v1').setProject('<PROJECT_ID>');\n    const account = new Account(client);\n\nSign in a user with `account.createEmailPasswordSession(email, password)`.\n\n## Webhooks\n\nAppwrite sends an HTTP POST to your URL when an event happens, for example `users.*.create` when a user signs up or `databases.*.collections.*.documents.*.create` when a document is created. The body is the created resource as JSON. Verify that the request comes from Appwrite by checking the `X-Appwrite-Webhook-Signature` header with your webhook signature key.\n\n## Storage\n\nStore and serve files with permissions per bucket."
+  },
+  "ideas": [
+    {
+      "title": "Cuentas de usuario para una app de reservas de alojamiento",
+      "summary": "Usar el SDK web de Appwrite para que los huéspedes creen su cuenta e inicien sesión en una app de turismo, sin programar ni mantener un backend de autenticación propio.",
+      "integrationType": "SDK",
+      "triggers": [],
+      "snippet": {
+        "language": "typescript",
+        "code": "import { Account, Client } from 'appwrite';\n\nconst client = new Client()\n  .setEndpoint('https://cloud.appwrite.io/v1')\n  .setProject(process.env.APPWRITE_PROJECT_ID!);\nconst account = new Account(client);\n\nawait account.createEmailPasswordSession(huesped.email, huesped.password);"
+      },
+      "stackCompatibility": ["react", "nextjs"],
+      "difficulty": "LOW"
+    },
+    {
+      "title": "Dar de alta en la nómina a cada empleado que crea su cuenta",
+      "summary": "Recibir el webhook de alta de usuarios de Appwrite en el sistema de recursos humanos para crear el legajo del empleado apenas se registra, sin cargarlo dos veces.",
+      "integrationType": "WEBHOOK",
+      "triggers": [
+        {
+          "event": "users.*.create",
+          "description": "Se registró un usuario nuevo en el proyecto"
+        }
+      ],
+      "snippet": {
+        "language": "typescript",
+        "code": "app.post('/webhooks/appwrite/users', express.json(), async (req, res) => {\n  if (!isValidSignature(req.get('X-Appwrite-Webhook-Signature'), req)) return res.sendStatus(401);\n  const user = req.body;\n  await createEmployeeRecord({ email: user.email, name: user.name });\n  res.sendStatus(200);\n});"
+      },
+      "stackCompatibility": ["node", "express"],
+      "difficulty": "MEDIUM"
+    },
+    {
+      "title": "Guardar comprobantes de pago con permisos por cliente",
+      "summary": "Usar el almacenamiento de Appwrite para que una app de cobranzas guarde los comprobantes que suben los clientes, con permisos por bucket para que cada uno vea solo los suyos.",
+      "integrationType": "REST_API",
+      "triggers": [],
+      "snippet": null,
+      "stackCompatibility": ["node", "react"],
+      "difficulty": "MEDIUM"
+    }
+  ]
+}

@@ -1,13 +1,21 @@
 import { and, desc, eq, gte, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { repository, syncRun, type SyncRun } from '../db/schema.js';
-import { errorMessage, syncRepos, type RepoRef, type SyncReposOptions } from './github.js';
+import {
+  errorMessage,
+  syncRepos,
+  type RepoRef,
+  type SyncRepoResult,
+  type SyncReposOptions,
+} from './github.js';
 
 // Una ejecución sin terminar más vieja que esto no se retoma: sus datos ya
 // están desactualizados y conviene sincronizar todo de nuevo.
 const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000;
 
-export type RunSyncOptions = Omit<SyncReposOptions, 'onBatch'>;
+export type RunSyncOptions = Omit<SyncReposOptions, 'onBatch'> & {
+  afterSync?: (results: SyncRepoResult[]) => Promise<void> | void;
+};
 
 // Nombres (en minúsculas) de los repos actualizados desde `since`.
 async function syncedSince(db: Db, since: Date): Promise<Set<string>> {
@@ -85,10 +93,11 @@ export async function runSync(
   options: RunSyncOptions = {},
 ): Promise<SyncRun> {
   const { run, pending } = await startOrResume(db, repos);
+  const { afterSync, ...syncOptions } = options;
 
   try {
-    await syncRepos(db, pending, {
-      ...options,
+    const results = await syncRepos(db, pending, {
+      ...syncOptions,
       onBatch: async ({ results, rateLimit }) => {
         const ok = results.filter(({ status }) => status === 'ok').length;
         await db
@@ -106,6 +115,7 @@ export async function runSync(
           .where(eq(syncRun.id, run.id));
       },
     });
+    await afterSync?.(results);
   } catch (error) {
     await db
       .update(syncRun)

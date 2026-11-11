@@ -1,0 +1,63 @@
+{
+  "description": "SaaS para cadenas de gimnasios: los socios reservan clases desde el celular y pagan la cuota mensual; el dueño ve la asistencia por sede y un chatbot responde las dudas frecuentes de los socios.",
+  "response": {
+    "sufficientContext": true,
+    "missingContext": [],
+    "capabilities": [
+      {
+        "key": "auth",
+        "name": "Inicio de sesión",
+        "reason": "Cada cadena es un cliente distinto y sus socios no pueden ver los datos de otra.",
+        "query": "multi-tenant user authentication",
+        "category": "auth",
+        "integrationType": "SDK",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "database",
+        "name": "Base de datos",
+        "reason": "Socios, clases, reservas y sedes por cadena tienen que persistir y consultarse rápido.",
+        "query": "relational database for a multi-tenant SaaS",
+        "category": "database",
+        "integrationType": "DOCKER",
+        "dependsOn": []
+      },
+      {
+        "key": "payments",
+        "name": "Pagos recurrentes",
+        "reason": "La cuota mensual se cobra como suscripción a cada socio.",
+        "query": "recurring billing and subscriptions",
+        "category": "payments",
+        "integrationType": "WEBHOOK",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "analytics",
+        "name": "Analítica",
+        "reason": "El dueño necesita métricas de asistencia por sede y por clase.",
+        "query": "product analytics dashboards for usage metrics",
+        "category": "analytics",
+        "integrationType": "SDK",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "ai",
+        "name": "Asistente con IA",
+        "reason": "Un chatbot responde las dudas frecuentes de los socios.",
+        "query": "LLM chatbot framework to answer FAQs",
+        "category": "ai",
+        "integrationType": "REST_API",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "notifications",
+        "name": "Notificaciones",
+        "reason": "Los socios reciben en el celular la confirmación y el recordatorio de cada clase.",
+        "query": "push notifications to mobile devices",
+        "category": null,
+        "integrationType": "REST_API",
+        "dependsOn": ["database"]
+      }
+    ]
+  }
+}
