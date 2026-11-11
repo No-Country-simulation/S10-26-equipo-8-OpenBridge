@@ -24,6 +24,10 @@
       {
         "capability": "search",
         "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
       }
     ],
     "expected_behavior": "recommend"
@@ -78,6 +82,10 @@
       {
         "capability": "payments",
         "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
       }
     ],
     "expected_behavior": "recommend"
@@ -149,6 +157,10 @@
       {
         "capability": "database",
         "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
       }
     ],
     "expected_behavior": "recommend"
@@ -286,6 +298,10 @@
       {
         "capability": "payments",
         "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
       }
     ],
     "expected_behavior": "recommend"
@@ -293,9 +309,10 @@
   {
     "id": "EVAL-012",
     "title": "Descripción insuficiente",
-    "business_description": "Quiero hacer una app. No se especifica industria, usuarios, problema ni funcionalidades.",
+    "business_description": "Quiero hacer una app.",
     "expected_capabilities": [],
     "expected_components": [],
-    "expected_behavior": "ask_for_context"
+    "expected_behavior": "ask_for_context",
+    "notes": "Descripción deliberadamente vaga: no indica industria, usuarios, problema ni funcionalidades. Se envía solo `business_description`; esta explicación no se manda al modelo."
   }
 ]
