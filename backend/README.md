@@ -94,3 +94,12 @@ GitHub (por ejemplo, después de aprobar ideas). `db:sync` la corre al final.
 - **Errores:** cada lote se reintenta una vez. Si vuelve a fallar, se informa en
   la consola y la corrida sigue con el lote siguiente; el comando termina con
   error para que Actions lo marque.
+
+## OB-42 · Logs estructurados y verificación de estado
+
+Cada petición genera un log JSON con `requestId`, `method`, `path`,
+`statusCode` y `durationMs`. `X-Request-Id` devuelve el identificador; `path`
+omite la query string.
+
+`GET /health` consulta la base de datos: responde `200` si está disponible y
+`503` si falla.

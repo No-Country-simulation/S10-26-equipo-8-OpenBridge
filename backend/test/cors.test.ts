@@ -5,9 +5,11 @@ import { parseAllowedOrigins } from '../src/cors.js';
 
 const FRONT = 'https://openbridge.vercel.app';
 
-// /health no toca la base: alcanza para probar los encabezados.
+// /health hace un `select 1` (OB-42): una base que siempre responde alcanza
+// para probar los encabezados.
+const db = { execute: async () => [] } as never;
 const app = (allowedOrigins = [FRONT, 'https://openbridge-*-equipo-8.vercel.app']) =>
-  createApp({ db: {} as never, allowedOrigins });
+  createApp({ db, allowedOrigins });
 
 describe('orígenes permitidos (CORS)', () => {
   it('permite el origen de la interfaz', async () => {
