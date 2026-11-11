@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HealthInfo } from '@/components/shared/health-info';
 import { ToolCard, ToolCardSkeleton } from '@/components/shared/tool-card';
 import { getRepositories } from '@/lib/repositories';
 
@@ -35,7 +36,10 @@ export function FeaturedToolsSkeleton({ count = FEATURED_SIZE }: { count?: numbe
 export function FeaturedToolsHeader() {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <h2 className="text-lg font-semibold">Destacados</h2>
+      <div className="flex items-center gap-1">
+        <h2 className="text-lg font-semibold">Destacados</h2>
+        <HealthInfo />
+      </div>
       <Link href="/catalogo?sort=health" className="text-sm font-medium text-link">
         Ver más →
       </Link>
