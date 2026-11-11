@@ -16,6 +16,36 @@ const optionalText = (schema: z.ZodString) =>
     schema.optional(),
   );
 
+// Máximo de la columna integer de Postgres: un minStars mayor no tiene
+// sentido y rompería la consulta.
+export const MAX_STARS = 2_147_483_647;
+
+// `maintenance=ACTIVE,MODERATE`: uno o más niveles separados por coma. No
+// distingue mayúsculas (igual que language y license), ignora espacios
+// alrededor de cada nivel y descarta repetidos. Vacío equivale a no mandarlo;
+// un segmento vacío ("ACTIVE,") o desconocido es un error.
+const maintenanceList = z.preprocess(
+  (value) =>
+    typeof value === 'string'
+      ? value.trim() === ''
+        ? undefined
+        : [...new Set(value.split(',').map((level) => level.trim().toUpperCase()))]
+      : value,
+  z.array(z.enum(maintenanceLevel.enumValues)).optional(),
+);
+
+// `minStars`: entero >= 0 escrito solo con dígitos (rechaza -1, abc, 1.5, 1e3).
+const minStars = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z
+    .string()
+    .trim()
+    .regex(/^\d+$/, 'Debe ser un entero mayor o igual a 0')
+    .transform(Number)
+    .pipe(z.number().max(MAX_STARS))
+    .optional(),
+);
+
 // Query de GET /api/v1/repositories. Un tamaño de página mayor al máximo no
 // es un error: se limita a MAX_PAGE_SIZE. Sin `sort`, con texto de búsqueda
 // ordena por relevancia y sin texto, por salud.
@@ -24,6 +54,8 @@ export const listRepositoriesQuerySchema = z
     category: optionalText(z.string().trim().toLowerCase()),
     language: optionalText(z.string().trim().max(MAX_FILTER_LENGTH)),
     license: optionalText(z.string().trim().max(MAX_FILTER_LENGTH)),
+    maintenance: maintenanceList,
+    minStars,
     q: optionalText(z.string().trim().min(MIN_QUERY_LENGTH).max(MAX_QUERY_LENGTH)),
     sort: z.enum(REPOSITORY_SORTS).optional(),
     page: z.coerce.number().int().min(1).default(1),

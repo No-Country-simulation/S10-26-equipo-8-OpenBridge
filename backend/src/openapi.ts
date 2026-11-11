@@ -13,6 +13,7 @@ import {
   MAX_PAGE_SIZE,
   MAX_FILTER_LENGTH,
   MAX_QUERY_LENGTH,
+  MAX_STARS,
   MIN_QUERY_LENGTH,
   REPOSITORY_SORTS,
   repositoryPageSchema,
@@ -81,6 +82,25 @@ export const openApiDocument = {
             schema: { type: 'string', maxLength: MAX_FILTER_LENGTH },
           },
           {
+            name: 'maintenance',
+            in: 'query',
+            required: false,
+            description:
+              'Nivel de mantenimiento: uno o más de ACTIVE, MODERATE, AT_RISK y ARCHIVED separados por coma ' +
+              '(maintenance=ACTIVE,MODERATE devuelve los que tengan cualquiera de ellos). No distingue mayúsculas. ' +
+              'Un valor desconocido responde 400.',
+            schema: { type: 'string', examples: ['ACTIVE', 'ACTIVE,MODERATE'] },
+          },
+          {
+            name: 'minStars',
+            in: 'query',
+            required: false,
+            description:
+              'Cantidad mínima de estrellas, inclusive: un repositorio con exactamente ese valor se incluye. ' +
+              'Entero mayor o igual a 0; un negativo, un decimal o un texto responde 400.',
+            schema: { type: 'integer', minimum: 0, maximum: MAX_STARS },
+          },
+          {
             name: 'q',
             in: 'query',
             required: false,
@@ -112,7 +132,10 @@ export const openApiDocument = {
         ],
         responses: {
           '200': json('RepositoryPage', 'Página de repositorios con el total.'),
-          '400': json('ApiError', 'Parámetros inválidos (código INVALID_QUERY).'),
+          '400': json(
+            'ApiError',
+            'Parámetros inválidos, incluidos maintenance y minStars (código INVALID_QUERY).',
+          ),
           '404': json('ApiError', 'La categoría no existe (código CATEGORY_NOT_FOUND).'),
         },
       },
