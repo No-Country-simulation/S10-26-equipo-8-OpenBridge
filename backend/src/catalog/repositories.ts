@@ -1,7 +1,18 @@
 import { and, asc, desc, eq, exists, inArray, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
-import { category, repository, repositoryCategory } from '../db/schema.js';
-import type { ListRepositoriesQuery, RepositoryPage } from './schema.js';
+import {
+  category,
+  integrationIdea,
+  repository,
+  repositoryCategory,
+  type Repository,
+} from '../db/schema.js';
+import type {
+  ListRepositoriesQuery,
+  RepositoryDetail,
+  RepositoryListItem,
+  RepositoryPage,
+} from './schema.js';
 
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, '\\$&');
 
@@ -97,8 +108,18 @@ export async function listRepositories(
     .limit(size)
     .offset((page - 1) * size);
 
-  // Todas las categorías de cada repo, no solo la filtrada: Supabase sigue
-  // mostrando Base de Datos aunque se liste Autenticación.
+  return {
+    data: await toListItems(db, rows),
+    meta: { page, size, total, totalPages: Math.ceil(total / size) },
+  };
+}
+
+// Mapea filas de repository al elemento del listado. Lo comparten el
+// listado y la ficha, así los campos del listado no pueden divergir.
+//
+// Todas las categorías de cada repo, no solo la filtrada: Supabase sigue
+// mostrando Base de Datos aunque se liste Autenticación.
+async function toListItems(db: Db, rows: Repository[]): Promise<RepositoryListItem[]> {
   const links =
     rows.length === 0
       ? []
@@ -118,22 +139,72 @@ export async function listRepositories(
           )
           .orderBy(asc(category.slug));
 
+  return rows.map((row) => ({
+    id: row.id,
+    fullName: row.fullName,
+    name: row.name,
+    description: row.description,
+    primaryLanguage: row.primaryLanguage,
+    licenseSpdx: row.licenseSpdx,
+    stars: row.stars,
+    healthScore: row.healthScore,
+    maintenanceLevel: row.maintenanceLevel,
+    categories: links
+      .filter((link) => link.repositoryId === row.id)
+      .map(({ slug: linkSlug, name }) => ({ slug: linkSlug, name })),
+    lastCommitAt: row.lastCommitAt?.toISOString() ?? null,
+  }));
+}
+
+// Ficha de un repo con sus ideas de integración aprobadas (las DRAFT y
+// REJECTED nunca salen de la curaduría). Devuelve null si no existe.
+export async function getRepositoryDetail(db: Db, id: string): Promise<RepositoryDetail | null> {
+  const [row] = await db.select().from(repository).where(eq(repository.id, id)).limit(1);
+  if (!row) return null;
+  const [item] = await toListItems(db, [row]);
+
+  const ideas = await db
+    .select()
+    .from(integrationIdea)
+    .where(and(eq(integrationIdea.repositoryId, id), eq(integrationIdea.status, 'APPROVED')))
+    .orderBy(asc(integrationIdea.createdAt), asc(integrationIdea.id));
+
+  // connects_with no tiene FK: se resuelve contra el catálogo y los ids que
+  // ya no existen se descartan.
+  const targetIds = [...new Set(ideas.flatMap((idea) => idea.connectsWith))];
+  const targets =
+    targetIds.length === 0
+      ? []
+      : await db
+          .select({ id: repository.id, fullName: repository.fullName })
+          .from(repository)
+          .where(inArray(repository.id, targetIds));
+  const byId = new Map(targets.map((target) => [target.id, target]));
+
   return {
-    data: rows.map((row) => ({
-      id: row.id,
-      fullName: row.fullName,
-      name: row.name,
-      description: row.description,
-      primaryLanguage: row.primaryLanguage,
-      licenseSpdx: row.licenseSpdx,
-      stars: row.stars,
-      healthScore: row.healthScore,
-      maintenanceLevel: row.maintenanceLevel,
-      categories: links
-        .filter((link) => link.repositoryId === row.id)
-        .map(({ slug: linkSlug, name }) => ({ slug: linkSlug, name })),
-      lastCommitAt: row.lastCommitAt?.toISOString() ?? null,
+    ...item,
+    url: row.url,
+    homepage: row.homepage,
+    forks: row.forks,
+    openIssues: row.openIssues,
+    lastReleaseAt: row.lastReleaseAt?.toISOString() ?? null,
+    archived: row.archived,
+    topics: row.topics,
+    activeMaintainer: row.activeMaintainer,
+    // Los repos que nunca pasaron por la sincronización con GitHub (la carga
+    // de seed) no tienen last_synced_at: se muestra la última escritura de la
+    // fila, que es cuándo el pipeline los tocó por última vez.
+    lastSyncedAt: (row.lastSyncedAt ?? row.updatedAt).toISOString(),
+    integrationIdeas: ideas.map((idea) => ({
+      id: idea.id,
+      title: idea.title,
+      summary: idea.summary,
+      integrationType: idea.integrationType,
+      difficulty: idea.difficulty,
+      triggers: idea.triggers,
+      snippet: idea.snippet,
+      stackCompatibility: idea.stackCompatibility,
+      connectsWith: idea.connectsWith.flatMap((targetId) => byId.get(targetId) ?? []),
     })),
-    meta: { page, size, total, totalPages: Math.ceil(total / size) },
   };
 }

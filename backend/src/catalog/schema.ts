@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { maintenanceLevel } from '../db/schema.js';
+import { ideaDifficulty, integrationType, maintenanceLevel } from '../db/schema.js';
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
@@ -62,6 +62,39 @@ export const repositoryListItemSchema = z.object({
   lastCommitAt: z.iso.datetime().nullable(),
 });
 
+export const integrationIdeaSchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  summary: z.string(),
+  integrationType: z.enum(integrationType.enumValues),
+  difficulty: z.enum(ideaDifficulty.enumValues),
+  triggers: z.array(z.object({ event: z.string(), description: z.string() })),
+  snippet: z.object({ language: z.string(), code: z.string() }).nullable(),
+  stackCompatibility: z.array(z.string()),
+  connectsWith: z.array(z.object({ id: z.uuid(), fullName: z.string() })),
+});
+
+// Respuesta de GET /api/v1/repositories/:id: el listado más los campos de la
+// ficha. Solo trae ideas aprobadas; [] significa "en curaduría".
+export const repositoryDetailSchema = repositoryListItemSchema.extend({
+  url: z.string(),
+  homepage: z.string().nullable(),
+  forks: z.number().int(),
+  openIssues: z.number().int(),
+  lastReleaseAt: z.iso.datetime().nullable(),
+  archived: z.boolean(),
+  topics: z.array(z.string()),
+  activeMaintainer: z.boolean(),
+  lastSyncedAt: z.iso.datetime(),
+  integrationIdeas: z.array(integrationIdeaSchema),
+});
+
+export const repositoryDetailResponseSchema = z.object({ data: repositoryDetailSchema });
+
+// guid y no uuid: acepta cualquier UUID con forma válida, que es lo único
+// que Postgres exige para castear; así un id mal formado nunca llega a la base.
+export const repositoryIdSchema = z.guid();
+
 export const repositoryPageSchema = z.object({
   data: z.array(repositoryListItemSchema),
   meta: z.object({
@@ -111,6 +144,7 @@ export const apiErrorSchema = z.object({
 });
 
 export type RepositoryListItem = z.output<typeof repositoryListItemSchema>;
+export type RepositoryDetail = z.output<typeof repositoryDetailSchema>;
 export type RepositoryPage = z.output<typeof repositoryPageSchema>;
 export type ApiError = z.output<typeof apiErrorSchema>;
 

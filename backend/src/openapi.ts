@@ -16,6 +16,7 @@ import {
   MAX_QUERY_LENGTH,
   MIN_QUERY_LENGTH,
   REPOSITORY_SORTS,
+  repositoryDetailResponseSchema,
   repositoryPageSchema,
 } from './catalog/schema.js';
 import {
@@ -118,6 +119,32 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/repositories/{id}': {
+      get: {
+        summary: 'Ficha técnica de un repositorio',
+        description:
+          'Los campos del listado más los de la ficha (forks, issues, temas, último release, etc.) y sus ideas de ' +
+          'integración aprobadas. Un repositorio sin ideas aprobadas devuelve `integrationIdeas: []` (en curaduría): ' +
+          'nunca se exponen las ideas en borrador o rechazadas. `connectsWith` solo incluye repositorios del catálogo. ' +
+          '`lastSyncedAt` cae a la última escritura de la fila si el repositorio nunca pasó por la sincronización con GitHub.',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'UUID del repositorio, tal como lo devuelve el listado.',
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          '200': json('RepositoryDetailResponse', 'Ficha del repositorio dentro de `data`.'),
+          '404': json(
+            'ApiError',
+            'No existe el repositorio o el id no es un UUID (código NOT_FOUND).',
+          ),
+        },
+      },
+    },
     '/api/v1/filters': {
       get: {
         summary: 'Opciones de los filtros del catálogo',
@@ -204,6 +231,7 @@ export const openApiDocument = {
       AssistantError: jsonSchema(assistantErrorSchema),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
+      RepositoryDetailResponse: jsonSchema(repositoryDetailResponseSchema),
       CatalogFilters: jsonSchema(catalogFiltersSchema),
       CategoryList: jsonSchema(categoryListSchema),
       ApiError: jsonSchema(apiErrorSchema),

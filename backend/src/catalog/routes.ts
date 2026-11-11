@@ -3,8 +3,8 @@ import { z } from 'zod';
 import type { Db } from '../db/client.js';
 import { listCategories } from './categories.js';
 import { getCatalogFilters } from './filters.js';
-import { listRepositories } from './repositories.js';
-import { apiError, listRepositoriesQuerySchema } from './schema.js';
+import { getRepositoryDetail, listRepositories } from './repositories.js';
+import { apiError, listRepositoriesQuerySchema, repositoryIdSchema } from './schema.js';
 
 export function catalogRouter(db: Db): Router {
   const router = Router();
@@ -24,6 +24,16 @@ export function catalogRouter(db: Db): Router {
       return;
     }
     res.json(page);
+  });
+
+  router.get('/repositories/:id', async (req, res) => {
+    const id = repositoryIdSchema.safeParse(req.params.id);
+    const detail = id.success ? await getRepositoryDetail(db, id.data) : null;
+    if (!detail) {
+      res.status(404).json(apiError('NOT_FOUND', 'No existe el repositorio'));
+      return;
+    }
+    res.json({ data: detail });
   });
 
   router.get('/filters', async (_req, res) => {
