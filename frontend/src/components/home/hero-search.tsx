@@ -133,8 +133,8 @@ export function HeroSearch({ children }: { children?: React.ReactNode }) {
           aria-label="Buscar herramientas por necesidad"
           aria-keyshortcuts="/"
           autoComplete="off"
-          placeholder="Buscá por necesidad: autenticación, búsqueda full-text, pagos…"
-          className="min-w-0 flex-1 appearance-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground md:text-lg [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+          placeholder="¿Qué deseas buscar hoy?"
+          className="min-w-0 flex-1 appearance-none bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/70 placeholder:italic md:text-lg [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
         />
         {query && (
           <button
@@ -150,7 +150,10 @@ export function HeroSearch({ children }: { children?: React.ReactNode }) {
             <X className="size-4" strokeWidth={1.5} aria-hidden="true" />
           </button>
         )}
-        <kbd className="hidden h-5 min-w-5 items-center justify-center rounded-sm border border-border bg-muted px-1.5 font-mono text-xs font-medium text-muted-foreground md:inline-flex">
+        <kbd
+          aria-hidden="true"
+          className="hidden cursor-default select-none h-5 min-w-5 items-center justify-center rounded-sm border border-border bg-muted px-1.5 font-mono text-xs font-medium text-muted-foreground md:inline-flex"
+        >
           /
         </kbd>
       </form>

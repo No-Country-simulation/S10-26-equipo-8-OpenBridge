@@ -44,15 +44,11 @@ export function Hero() {
             className="dark mt-5 flex flex-wrap md:mt-4 items-center justify-center gap-2"
           >
             <span className="text-[13px] text-muted-foreground">Populares:</span>
-            {popularSearches.map((term, i) => (
+            {popularSearches.map((term) => (
               <Link
                 key={term}
                 href={`/catalogo?q=${encodeURIComponent(term)}`}
-                className={
-                  i === 0
-                    ? `${chipClass} bg-primary text-primary-foreground hover:bg-primary/90`
-                    : `${chipClass} border border-border bg-muted text-foreground hover:border-border-strong`
-                }
+                className={`${chipClass} border border-border bg-muted text-foreground hover:border-border-strong`}
               >
                 {term}
               </Link>

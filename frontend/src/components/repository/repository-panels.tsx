@@ -12,6 +12,7 @@ import {
 import type { ComponentType, ReactNode } from 'react';
 import { HealthBadge } from '@/components/shared/health-badge';
 import { isCopyleft } from '@/components/shared/license-badge';
+import { HEALTH_SCORE_EXPLANATION } from '@/lib/health-info';
 import { formatLastCommit, formatStars, type RepositoryDetail } from '@/lib/repositories';
 
 const bar = {
@@ -59,8 +60,7 @@ export function HealthPanel({ repository }: { repository: RepositoryDetail }) {
       </div>
       <p className="flex gap-2 text-xs leading-4 text-muted-foreground">
         <Info className="mt-px size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
-        Combina actividad de commits, resolución de issues, releases recientes y mantenedores
-        activos.
+        {HEALTH_SCORE_EXPLANATION}
       </p>
     </section>
   );
