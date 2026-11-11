@@ -6,23 +6,12 @@ import { loadCapabilitiesPrompt } from '../../src/assistant/prompt.js';
 import { MAX_DESCRIPTION, type ModelOutput } from '../../src/assistant/schema.js';
 import { upsertEmbedding } from '../../src/db/embeddings.js';
 import { upsertRepository } from '../../src/db/repositories.js';
-import { EMBEDDING_DIMENSIONS, category } from '../../src/db/schema.js';
+import { category } from '../../src/db/schema.js';
 import { seedCategories } from '../../src/db/seed.js';
-import {
-  ModelTimeoutError,
-  type ChatMessage,
-  type CompleteOptions,
-  type IdeaModel,
-} from '../../src/ideas/model.js';
+import { ModelTimeoutError, type IdeaModel } from '../../src/ideas/model.js';
 import type { EmbedQuery } from '../../src/search/service.js';
+import { fakeModel, vectorWithSimilarity } from '../helpers/assistant.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
-
-function vectorWithSimilarity(similarity: number, axis: number): number[] {
-  const vector = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
-  vector[0] = similarity;
-  vector[axis] = Math.sqrt(1 - similarity ** 2);
-  return vector;
-}
 
 const DESCRIPTION = 'Marketplace B2B de repuestos industriales con pagos online y buscador.';
 
@@ -36,6 +25,8 @@ const OUTPUT: ModelOutput = {
       reason: 'Compradores y vendedores entran con cuentas de empresa.',
       query: 'B2B single sign-on',
       category: 'auth',
+      integrationType: 'SDK',
+      dependsOn: [],
     },
     {
       key: 'payments',
@@ -43,6 +34,8 @@ const OUTPUT: ModelOutput = {
       reason: 'Los pedidos se cobran online.',
       query: 'online payments',
       category: 'payments',
+      integrationType: 'WEBHOOK',
+      dependsOn: ['auth'],
     },
     {
       key: 'video',
@@ -50,6 +43,8 @@ const OUTPUT: ModelOutput = {
       reason: 'Los vendedores muestran repuestos por videollamada.',
       query: 'video calls',
       category: null,
+      integrationType: 'SDK',
+      dependsOn: ['auth'],
     },
   ],
 };
@@ -59,23 +54,6 @@ const NEEDS_CONTEXT: ModelOutput = {
   missingContext: ['¿A qué se dedica tu empresa?', '¿Quiénes la van a usar?'],
   capabilities: [],
 };
-
-// Modelo falso que devuelve las respuestas en orden y registra los mensajes.
-function fakeModel(...responses: string[]) {
-  const calls: ChatMessage[][] = [];
-  const options: Array<CompleteOptions | undefined> = [];
-  const model: IdeaModel = {
-    name: 'fake',
-    complete: vi.fn(async (messages: ChatMessage[], callOptions?: CompleteOptions) => {
-      calls.push(messages);
-      options.push(callOptions);
-      const next = responses.shift();
-      if (next === undefined) throw new Error('El modelo falso no tiene más respuestas');
-      return next;
-    }),
-  };
-  return { model, calls, options };
-}
 
 const embedQuery = vi.fn<EmbedQuery>(async () => vectorWithSimilarity(1, 1));
 
@@ -154,7 +132,8 @@ describe('descomposición del negocio en capacidades', () => {
 
       await decomposeBusiness(t.db, { description: DESCRIPTION }, { model, prompt, embedQuery });
 
-      expect(embedQuery.mock.calls.map(([query]) => query)).toEqual([
+      // En paralelo: el orden de las llamadas no está garantizado.
+      expect(embedQuery.mock.calls.map(([query]) => query).sort()).toEqual([
         'B2B single sign-on',
         'online payments',
         'video calls',
@@ -281,6 +260,9 @@ describe('descomposición del negocio en capacidades', () => {
         reason: OUTPUT.capabilities[0].reason,
         query: 'B2B single sign-on',
         category: 'auth',
+        // Campos del prompt v2 (OB-34), agregados sin cambiar los de OB-33.
+        integrationType: 'SDK',
+        dependsOn: [],
         candidates: [{ type: 'REPOSITORY', title: 'acme/keycloak' }],
       });
     });

@@ -1,13 +1,20 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
 import type { ChatMessage } from '../ideas/model.js';
-import { modelOutputSchema, type ModelOutput } from './schema.js';
+import { modelOutputSchema, modelOutputV1Schema, type ModelOutput } from './schema.js';
 
 // Igual que los prompts de ideas: cada versión vive en su carpeta
 // (system.md y examples/) y no se edita; para cambiarla se crea otra.
 const PROMPTS_DIR = new URL('../../prompts/assistant/capabilities/', import.meta.url);
 
-export const CAPABILITIES_PROMPT_VERSION = 'v1';
+// v2 (OB-34) suma integrationType y dependsOn a cada capacidad.
+export const CAPABILITIES_PROMPT_VERSION = 'v2';
+
+// Esquema de salida de cada versión: los ejemplos de v1 siguen siendo válidos
+// para v1 aunque la app ya no la use.
+export function modelOutputSchemaFor(version: string) {
+  return version === 'v1' ? modelOutputV1Schema : modelOutputSchema;
+}
 
 export interface CapabilitiesExample {
   description: string;
