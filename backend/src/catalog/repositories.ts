@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, exists, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import {
   category,
@@ -54,7 +54,17 @@ function textSearch(q: string) {
 // categoría pedida no existe.
 export async function listRepositories(
   db: Db,
-  { category: slug, language, license, q, sort, page, size }: ListRepositoriesQuery,
+  {
+    category: slug,
+    language,
+    license,
+    maintenance,
+    minStars,
+    q,
+    sort,
+    page,
+    size,
+  }: ListRepositoriesQuery,
 ): Promise<RepositoryPage | null> {
   const conditions: SQL[] = [];
   if (slug) {
@@ -80,6 +90,8 @@ export async function listRepositories(
   }
   if (language) conditions.push(sql`lower(${repository.primaryLanguage}) = lower(${language})`);
   if (license) conditions.push(sql`lower(${repository.licenseSpdx}) = lower(${license})`);
+  if (maintenance) conditions.push(inArray(repository.maintenanceLevel, maintenance));
+  if (minStars !== undefined) conditions.push(gte(repository.stars, minStars));
   const search = q ? textSearch(q) : undefined;
   if (search) conditions.push(search.matches);
   const where = and(...conditions);
