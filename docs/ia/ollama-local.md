@@ -6,11 +6,11 @@ Guía para preparar el modelo que usa el generador de ideas (`npm run db:generat
 
 ## 1. Instalar Ollama
 
-| Sistema | Comando |
-|---|---|
+| Sistema     | Comando                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
 | **Windows** | `winget install --id Ollama.Ollama` (o el instalador de [ollama.com/download](https://ollama.com/download)) |
-| **macOS** | `brew install --cask ollama` (o la app de [ollama.com/download](https://ollama.com/download)) |
-| **Linux** | `curl -fsSL https://ollama.com/install.sh \| sh` |
+| **macOS**   | `brew install --cask ollama` (o la app de [ollama.com/download](https://ollama.com/download))               |
+| **Linux**   | `curl -fsSL https://ollama.com/install.sh \| sh`                                                            |
 
 Al terminar, **cerrá y volvé a abrir la terminal**. Ollama queda corriendo como servicio en `http://localhost:11434`.
 
@@ -55,10 +55,10 @@ El resultado de cada corrida queda en `backend/reports/ideas-report.json`.
 
 ## Si algo falla
 
-| Síntoma | Solución |
-|---|---|
-| `llama-server binary not found` | La instalación quedó incompleta. Cerrá Ollama desde la bandeja y reinstalá: `winget install --id Ollama.Ollama --force`. Los modelos ya bajados se conservan. |
-| `ollama ps` dice `CPU` | Actualizá el driver de la GPU: NVIDIA (531 o más nuevo) o AMD (última versión de Adrenalin). Reiniciá Ollama. |
-| `fetch failed` o el generador queda colgado | Una generación anterior quedó trabada dentro de Ollama, que atiende de a una solicitud. Cerrá Ollama desde la bandeja (*Quit*) y volvé a abrirlo. |
-| `ECONNREFUSED 11434` | Ollama no está corriendo: abrí la app o corré `ollama serve`. |
-| `ollama` no se reconoce como comando | Cerrá y volvé a abrir la terminal (el `PATH` se actualiza al instalar). |
+| Síntoma                                     | Solución                                                                                                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `llama-server binary not found`             | La instalación quedó incompleta. Cerrá Ollama desde la bandeja y reinstalá: `winget install --id Ollama.Ollama --force`. Los modelos ya bajados se conservan. |
+| `ollama ps` dice `CPU`                      | Actualizá el driver de la GPU: NVIDIA (531 o más nuevo) o AMD (última versión de Adrenalin). Reiniciá Ollama.                                                 |
+| `fetch failed` o el generador queda colgado | Una generación anterior quedó trabada dentro de Ollama, que atiende de a una solicitud. Cerrá Ollama desde la bandeja (_Quit_) y volvé a abrirlo.             |
+| `ECONNREFUSED 11434`                        | Ollama no está corriendo: abrí la app o corré `ollama serve`.                                                                                                 |
+| `ollama` no se reconoce como comando        | Cerrá y volvé a abrir la terminal (el `PATH` se actualiza al instalar).                                                                                       |

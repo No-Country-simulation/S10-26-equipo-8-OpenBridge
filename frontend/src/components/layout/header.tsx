@@ -8,7 +8,10 @@ export function Header() {
     <header className="sticky top-0 z-30 border-b border-border bg-background">
       <div className="mx-auto flex h-14 w-full max-w-300 items-center justify-between px-4 sm:px-8">
         <div className="flex items-center gap-4 sm:gap-8">
-          <Link href="/" className="flex items-center gap-2 text-base tracking-[-0.01em] text-foreground">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-base tracking-[-0.01em] text-foreground"
+          >
             <span aria-hidden className="flex h-2 w-5 items-center">
               <span className="size-2 rounded-xs bg-foreground" />
               <span className="size-1 bg-foreground" />
