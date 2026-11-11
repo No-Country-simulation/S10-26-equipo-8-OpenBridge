@@ -41,6 +41,21 @@ describe('generación de embeddings con Ollama', () => {
     );
   });
 
+  it('manda la clave de Ollama cuando está configurada', async () => {
+    const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.25);
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ embeddings: [vector] })));
+    const embed = createOllamaEmbedder({ apiKey: 'secreto', request });
+
+    await embed(['repo de prueba']);
+
+    expect(request.mock.calls[0][1]?.headers).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer secreto',
+    });
+  });
+
   it('vectoriza las consultas tal cual, sin prefijo (bge-m3 no los usa)', async () => {
     const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5);
     const embedBatch = vi.fn().mockResolvedValue([vector]);
