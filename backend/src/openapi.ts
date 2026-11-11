@@ -9,12 +9,15 @@ import {
 import {
   apiErrorSchema,
   catalogFiltersSchema,
+  categoryListSchema,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   MAX_FILTER_LENGTH,
   MAX_QUERY_LENGTH,
+  MAX_STARS,
   MIN_QUERY_LENGTH,
   REPOSITORY_SORTS,
+  repositoryDetailResponseSchema,
   repositoryPageSchema,
 } from './catalog/schema.js';
 import {
@@ -81,6 +84,25 @@ export const openApiDocument = {
             schema: { type: 'string', maxLength: MAX_FILTER_LENGTH },
           },
           {
+            name: 'maintenance',
+            in: 'query',
+            required: false,
+            description:
+              'Nivel de mantenimiento: uno o más de ACTIVE, MODERATE, AT_RISK y ARCHIVED separados por coma ' +
+              '(maintenance=ACTIVE,MODERATE devuelve los que tengan cualquiera de ellos). No distingue mayúsculas. ' +
+              'Un valor desconocido responde 400.',
+            schema: { type: 'string', examples: ['ACTIVE', 'ACTIVE,MODERATE'] },
+          },
+          {
+            name: 'minStars',
+            in: 'query',
+            required: false,
+            description:
+              'Cantidad mínima de estrellas, inclusive: un repositorio con exactamente ese valor se incluye. ' +
+              'Entero mayor o igual a 0; un negativo, un decimal o un texto responde 400.',
+            schema: { type: 'integer', minimum: 0, maximum: MAX_STARS },
+          },
+          {
             name: 'q',
             in: 'query',
             required: false,
@@ -112,8 +134,37 @@ export const openApiDocument = {
         ],
         responses: {
           '200': json('RepositoryPage', 'Página de repositorios con el total.'),
-          '400': json('ApiError', 'Parámetros inválidos (código INVALID_QUERY).'),
+          '400': json(
+            'ApiError',
+            'Parámetros inválidos, incluidos maintenance y minStars (código INVALID_QUERY).',
+          ),
           '404': json('ApiError', 'La categoría no existe (código CATEGORY_NOT_FOUND).'),
+        },
+      },
+    },
+    '/api/v1/repositories/{id}': {
+      get: {
+        summary: 'Ficha técnica de un repositorio',
+        description:
+          'Los campos del listado más los de la ficha (forks, issues, temas, último release, etc.) y sus ideas de ' +
+          'integración aprobadas. Un repositorio sin ideas aprobadas devuelve `integrationIdeas: []` (en curaduría): ' +
+          'nunca se exponen las ideas en borrador o rechazadas. `connectsWith` solo incluye repositorios del catálogo. ' +
+          '`lastSyncedAt` cae a la última escritura de la fila si el repositorio nunca pasó por la sincronización con GitHub.',
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            description: 'UUID del repositorio, tal como lo devuelve el listado.',
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          '200': json('RepositoryDetailResponse', 'Ficha del repositorio dentro de `data`.'),
+          '404': json(
+            'ApiError',
+            'No existe el repositorio o el id no es un UUID (código NOT_FOUND).',
+          ),
         },
       },
     },
@@ -125,6 +176,18 @@ export const openApiDocument = {
           'repositorios de cada uno (de mayor a menor), y el rango de estrellas.',
         responses: {
           '200': json('CatalogFilters', 'Opciones disponibles.'),
+        },
+      },
+    },
+    '/api/v1/categories': {
+      get: {
+        summary: 'Listar las categorías',
+        description:
+          'Todas las categorías, también las que no tienen repositorios (repositoryCount 0), ordenadas por nombre ' +
+          'ascendente. Un repositorio en varias categorías cuenta una vez en cada una. description es null si la ' +
+          'categoría no tiene descripción. No acepta parámetros.',
+        responses: {
+          '200': json('CategoryList', 'Categorías con su cantidad de repositorios.'),
         },
       },
     },
@@ -191,7 +254,9 @@ export const openApiDocument = {
       AssistantError: jsonSchema(assistantErrorSchema),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
+      RepositoryDetailResponse: jsonSchema(repositoryDetailResponseSchema),
       CatalogFilters: jsonSchema(catalogFiltersSchema),
+      CategoryList: jsonSchema(categoryListSchema),
       ApiError: jsonSchema(apiErrorSchema),
     },
   },

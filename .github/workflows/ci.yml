@@ -1,0 +1,76 @@
+name: CI
+
+# Corre en cada PR contra dev o main y en cada push a esas ramas (OB-02).
+# Los nombres de los jobs (format, backend, frontend) son los que se marcan
+# como obligatorios en la protección de ramas: no cambiarlos sin actualizarla.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+# Un push nuevo al mismo PR cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Los tests crean una base por archivo en este Postgres (ver
+    # backend/test/helpers/test-db.ts); usan dobles en lugar de Ollama.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: openbridge
+          POSTGRES_PASSWORD: openbridge
+          POSTGRES_DB: openbridge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openbridge -d openbridge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://openbridge:openbridge@localhost:5432/openbridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -w backend
+      - run: npm run build -w backend
+      - run: npm test -w backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -w frontend
+      - run: npm run build -w frontend
