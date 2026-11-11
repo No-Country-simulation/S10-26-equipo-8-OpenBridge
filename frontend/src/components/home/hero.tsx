@@ -1,11 +1,7 @@
 import Link from 'next/link';
 import { HeroSearch } from '@/components/home/hero-search';
 
-const popularSearches = [
-  'Autenticación con SSO',
-  'Búsqueda full-text',
-  'Pagos recurrentes',
-];
+const popularSearches = ['Autenticación con SSO', 'Búsqueda full-text', 'Pagos recurrentes'];
 
 const chipClass =
   'inline-flex h-8 items-center rounded-full px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40';
@@ -27,7 +23,11 @@ const subtitleClass =
 export function Hero() {
   return (
     <section className="relative border-b border-[#262626] bg-black px-4 pb-26 pt-12 md:pb-33 md:pt-[72px]">
-      <div aria-hidden="true" className="dark pointer-events-none absolute inset-0 [--dot:30%]" style={dotGrid} />
+      <div
+        aria-hidden="true"
+        className="dark pointer-events-none absolute inset-0 [--dot:30%]"
+        style={dotGrid}
+      />
       <div className="relative mx-auto flex w-full max-w-225 flex-col items-center text-center">
         <h1 className="dark text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.04em] md:leading-[1.015] text-foreground md:text-6xl lg:text-7xl">
           Encuentra la herramienta correcta,{' '}
