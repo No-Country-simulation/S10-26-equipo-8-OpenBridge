@@ -1,0 +1,12 @@
+{
+  "description": "Quiero hacer un sistema para mi empresa que use inteligencia artificial.",
+  "response": {
+    "sufficientContext": false,
+    "missingContext": [
+      "¿A qué se dedica tu empresa y qué problema querés resolver con el sistema?",
+      "¿Quiénes lo van a usar: empleados, clientes o ambos?",
+      "¿Cuántos usuarios esperás al principio y en un año?"
+    ],
+    "capabilities": []
+  }
+}
