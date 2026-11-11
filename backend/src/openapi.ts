@@ -9,6 +9,7 @@ import {
 import {
   apiErrorSchema,
   catalogFiltersSchema,
+  categoryListSchema,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   MAX_FILTER_LENGTH,
@@ -128,6 +129,18 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/categories': {
+      get: {
+        summary: 'Listar las categorías',
+        description:
+          'Todas las categorías, también las que no tienen repositorios (repositoryCount 0), ordenadas por nombre ' +
+          'ascendente. Un repositorio en varias categorías cuenta una vez en cada una. description es null si la ' +
+          'categoría no tiene descripción. No acepta parámetros.',
+        responses: {
+          '200': json('CategoryList', 'Categorías con su cantidad de repositorios.'),
+        },
+      },
+    },
     '/api/v1/assistant/capabilities': {
       post: {
         summary: 'Descomponer el negocio en capacidades técnicas',
@@ -192,6 +205,7 @@ export const openApiDocument = {
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
       CatalogFilters: jsonSchema(catalogFiltersSchema),
+      CategoryList: jsonSchema(categoryListSchema),
       ApiError: jsonSchema(apiErrorSchema),
     },
   },

@@ -89,6 +89,23 @@ export const catalogFiltersSchema = z.object({
 
 export type CatalogFilters = z.output<typeof catalogFiltersSchema>;
 
+// Respuesta de GET /api/v1/categories. Contrato que consume el front
+// (Category en frontend/src/lib/categories.ts). description llega en null si
+// la categoría no la tiene.
+export const categoryListSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.uuid(),
+      slug: z.string(),
+      name: z.string(),
+      description: z.string().nullable(),
+      repositoryCount: z.number().int().min(0),
+    }),
+  ),
+});
+
+export type CategoryList = z.output<typeof categoryListSchema>;
+
 export const apiErrorSchema = z.object({
   error: z.object({ code: z.string(), message: z.string() }),
 });
