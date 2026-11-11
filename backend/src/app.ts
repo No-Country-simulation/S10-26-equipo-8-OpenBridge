@@ -14,8 +14,12 @@ import { searchRouter } from './search/routes.js';
 import type { EmbedQuery } from './search/service.js';
 
 // El front corta a los 30 s: cada intento tiene hasta 20 s, y entre los dos
-// no pasan de 25 s (ver decomposeBusiness). 8 capacidades con justificación y
-// consulta largas rondan los 1.000 tokens: 1.536 deja margen.
+// no pasan de 25 s en capacidades ni de 23 s en propuestas (ver
+// decomposeBusiness y createProposal). Prompt v2: los ejemplos ocupan ~275
+// caracteres por capacidad (v1: ~220; integrationType y dependsOn suman ~55),
+// así que 8 capacidades son ~2.200 caracteres, unos 750-900 tokens. 1.536
+// sigue dejando margen; más tope solo le daría más tiempo a un modelo que
+// entra en bucle antes de que lo corte el timeout.
 const ASSISTANT_TIMEOUT_MS = 20_000;
 const ASSISTANT_NUM_PREDICT = 1536;
 
