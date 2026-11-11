@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HeaderMenu } from './header-menu';
 import { HeaderNav } from './header-nav';
 import { HeaderSearch } from './header-search';
 import { ThemeToggle } from './theme-toggle';
@@ -21,9 +22,10 @@ export function Header() {
           </Link>
           <HeaderNav />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 max-md:-mr-2.5 md:gap-3">
           <HeaderSearch />
           <ThemeToggle />
+          <HeaderMenu />
         </div>
       </div>
     </header>
