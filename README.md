@@ -32,6 +32,12 @@ npm run dev   # levanta ambos en paralelo
 
 Variables de entorno del backend: copiá `backend/.env.example` a `backend/.env` si necesitás cambiar el puerto.
 
+Sin `CORS_ORIGINS`, la API solo acepta consultas de navegador desde `http://localhost:3000`; cualquier otro origen recibe `403 ORIGIN_NOT_ALLOWED`. Si levantás la interfaz en otro puerto, agregalo: `CORS_ORIGINS=http://localhost:3000,http://localhost:3001`.
+
+## Despliegue
+
+Servidor en Render, base en Neon y el Ollama del equipo detrás de un proxy con clave. Pasos, variables y verificación en [docs/deploy.md](docs/deploy.md).
+
 ## Base de datos local
 
 PostgreSQL 17 con pgvector (imagen `pgvector/pgvector`), equivalente a Neon en producción.

@@ -10,6 +10,7 @@ import {
   repository,
   repositoryCategory,
 } from '../db/schema.js';
+import { authHeaders, ollamaConfig } from '../ollama.js';
 
 // bge-m3: multilingüe (las consultas llegan en español y los README en
 // inglés) y sin prefijos de tarea; documentos y consultas se envían tal cual.
@@ -45,11 +46,13 @@ function isEmbedResponse(value: unknown): value is OllamaEmbedResponse {
 }
 
 export function createOllamaEmbedder({
-  baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434',
+  baseUrl = ollamaConfig().baseUrl,
+  apiKey = process.env.OLLAMA_API_KEY?.trim(),
   model = embeddingModel(),
   request = fetch,
 }: {
   baseUrl?: string;
+  apiKey?: string;
   model?: string;
   request?: typeof fetch;
 } = {}): EmbedBatch {
@@ -60,7 +63,7 @@ export function createOllamaEmbedder({
     try {
       response = await request(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(apiKey) },
         body: JSON.stringify({ model, input: inputs }),
       });
     } catch (error) {
