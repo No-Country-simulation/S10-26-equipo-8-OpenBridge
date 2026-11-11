@@ -32,7 +32,9 @@ function FlowStep({ name, slug }: { name: string; slug?: string }) {
 }
 
 function FlowArrow() {
-  return <ArrowRight className="size-3 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />;
+  return (
+    <ArrowRight className="size-3 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />
+  );
 }
 
 export function AssistantPanel() {
@@ -65,9 +67,7 @@ export function AssistantPanel() {
           herramientas y cómo conectarlas entre sí.
         </p>
 
-        <p className="mt-4 text-xs text-muted-foreground">
-          Ejemplo · E-commerce B2B de logística
-        </p>
+        <p className="mt-4 text-xs text-muted-foreground">Ejemplo · E-commerce B2B de logística</p>
         <div className="flex flex-wrap items-center gap-2" aria-hidden="true">
           <FlowStep name="Next.js" />
           <FlowArrow />
@@ -99,7 +99,8 @@ export function AssistantPanel() {
             maxLength={MAX_LENGTH}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              // Enter envía; Shift + Enter agrega un salto de línea.
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 if (isValid) formRef.current?.requestSubmit();
               }

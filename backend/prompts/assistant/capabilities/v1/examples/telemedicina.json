@@ -1,0 +1,44 @@
+{
+  "description": "Plataforma de telemedicina para clínicas medianas: los pacientes sacan turno, tienen la consulta por videollamada y la pagan online; los médicos cargan la historia clínica de cada paciente.",
+  "response": {
+    "sufficientContext": true,
+    "missingContext": [],
+    "capabilities": [
+      {
+        "key": "auth",
+        "name": "Inicio de sesión",
+        "reason": "Pacientes y médicos entran con permisos distintos y la historia clínica solo la ve el médico tratante.",
+        "query": "user authentication with roles and permissions",
+        "category": "auth"
+      },
+      {
+        "key": "database",
+        "name": "Base de datos",
+        "reason": "Turnos, pacientes e historias clínicas son datos relacionales que tienen que persistir de forma segura.",
+        "query": "relational database for transactional data",
+        "category": "database"
+      },
+      {
+        "key": "payments",
+        "name": "Pagos",
+        "reason": "Cada consulta se cobra online al sacar el turno.",
+        "query": "online payment processing for one-time charges",
+        "category": "payments"
+      },
+      {
+        "key": "video",
+        "name": "Videollamadas",
+        "reason": "La consulta médica se hace por videollamada entre paciente y médico.",
+        "query": "video calls between two participants in the browser",
+        "category": null
+      },
+      {
+        "key": "search",
+        "name": "Búsqueda",
+        "reason": "Los pacientes buscan médicos por especialidad y disponibilidad.",
+        "query": "fast full-text search engine for a directory",
+        "category": "search"
+      }
+    ]
+  }
+}

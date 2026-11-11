@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import {
+  assistantErrorSchema,
+  capabilitiesRequestSchema,
+  capabilitiesResponseSchema,
+  MAX_DESCRIPTION,
+  MIN_DESCRIPTION,
+} from './assistant/schema.js';
+import {
   apiErrorSchema,
   catalogFiltersSchema,
   DEFAULT_PAGE_SIZE,
@@ -121,6 +128,37 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/assistant/capabilities': {
+      post: {
+        summary: 'Descomponer el negocio en capacidades técnicas',
+        description:
+          'El modelo identifica las capacidades técnicas que necesita el producto descripto, cada una con una ' +
+          'justificación de una línea, y por cada capacidad se buscan candidatos en el catálogo con su propia ' +
+          `consulta. La descripción tiene entre ${MIN_DESCRIPTION} y ${MAX_DESCRIPTION} caracteres.`,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: ref('CapabilitiesRequest') } },
+        },
+        responses: {
+          '200': json('CapabilitiesResponse', 'Capacidades con sus candidatos del catálogo.'),
+          '400': json('AssistantError', 'Cuerpo inválido (código VALIDATION_ERROR).'),
+          '413': json('AssistantError', 'El cuerpo supera los 32 KB (código PAYLOAD_TOO_LARGE).'),
+          '422': json(
+            'AssistantError',
+            'La descripción es vaga (código INSUFFICIENT_CONTEXT); details trae las preguntas del asistente.',
+          ),
+          '502': json(
+            'AssistantError',
+            'El modelo respondió dos veces fuera de formato (código MODEL_INVALID_RESPONSE).',
+          ),
+          '503': json(
+            'AssistantError',
+            'Ollama no responde o falta un modelo (código UPSTREAM_UNAVAILABLE).',
+          ),
+          '504': json('AssistantError', 'El modelo tardó demasiado (código UPSTREAM_TIMEOUT).'),
+        },
+      },
+    },
     '/api/v1/search': {
       post: {
         summary: 'Buscar por significado',
@@ -148,6 +186,9 @@ export const openApiDocument = {
   components: {
     schemas: {
       SearchRequest: jsonSchema(searchRequestSchema, 'input'),
+      CapabilitiesRequest: jsonSchema(capabilitiesRequestSchema, 'input'),
+      CapabilitiesResponse: jsonSchema(capabilitiesResponseSchema),
+      AssistantError: jsonSchema(assistantErrorSchema),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
       CatalogFilters: jsonSchema(catalogFiltersSchema),

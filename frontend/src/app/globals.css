@@ -162,3 +162,15 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Buscador del header en mobile: se revela desde la lupa hacia la izquierda. */
+@keyframes search-reveal {
+  from {
+    clip-path: inset(0 0 0 calc(100% - 2.5rem));
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
