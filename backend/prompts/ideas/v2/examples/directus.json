@@ -1,0 +1,35 @@
+{
+  "repository": {
+    "fullName": "directus/directus",
+    "description": "Real-time API and app dashboard for managing SQL database content",
+    "primaryLanguage": "TypeScript",
+    "topics": ["cms", "headless-cms", "api", "sql"],
+    "readme": "# Directus\n\nDirectus wraps any SQL database with REST and GraphQL APIs and gives non-technical users an app to manage its content. It works on top of your existing schema without migrating data.\n\n## Run with Docker\n\nThe container needs a `SECRET`, the database connection (`DB_CLIENT`, `DB_CONNECTION_STRING`) and the first admin user (`ADMIN_EMAIL`, `ADMIN_PASSWORD`):\n\n    docker run -p 8055:8055 -e SECRET=... -e DB_CLIENT=pg -e DB_CONNECTION_STRING=... -e ADMIN_EMAIL=... -e ADMIN_PASSWORD=... directus/directus\n\n## REST API\n\nRead the items of a collection with `GET /items/:collection`, for example `GET /items/articles`. Responses are JSON with the rows in `data`. Send a static token with `Authorization: Bearer <token>`, or give the Public role read access to the collection."
+  },
+  "ideas": [
+    {
+      "title": "Panel editorial para una revista sobre su base de datos actual",
+      "summary": "Levantar Directus en un contenedor apuntando a la base de una revista digital, para que los editores carguen y corrijan notas desde un panel sin pedirle cambios al equipo técnico.",
+      "integrationType": "DOCKER",
+      "triggers": [],
+      "snippet": {
+        "language": "bash",
+        "code": "docker run -d -p 8055:8055 \\\n  -e SECRET=\"$DIRECTUS_SECRET\" \\\n  -e DB_CLIENT=pg \\\n  -e DB_CONNECTION_STRING=\"$REVISTA_DB_URL\" \\\n  -e ADMIN_EMAIL=editor@revista.com -e ADMIN_PASSWORD=\"$ADMIN_PASSWORD\" \\\n  directus/directus"
+      },
+      "stackCompatibility": ["docker", "postgres", "mysql"],
+      "difficulty": "MEDIUM"
+    },
+    {
+      "title": "Mostrar el calendario de cursos de un instituto en su sitio web",
+      "summary": "Leer la colección de cursos desde la API REST de Directus en el sitio de un instituto, así el personal administrativo actualiza fechas y cupos sin tocar el código del sitio.",
+      "integrationType": "REST_API",
+      "triggers": [],
+      "snippet": {
+        "language": "typescript",
+        "code": "const res = await fetch(`${process.env.DIRECTUS_URL}/items/courses`, {\n  headers: { Authorization: `Bearer ${process.env.DIRECTUS_TOKEN}` },\n});\nconst { data: courses } = await res.json();"
+      },
+      "stackCompatibility": ["nextjs", "astro"],
+      "difficulty": "LOW"
+    }
+  ]
+}

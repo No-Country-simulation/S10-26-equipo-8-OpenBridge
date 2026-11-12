@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+coverage
+out
+build
+package-lock.json
+*.tsbuildinfo
+next-env.d.ts
+
+# Generados por drizzle-kit
+**/drizzle/meta/
+**/reports/

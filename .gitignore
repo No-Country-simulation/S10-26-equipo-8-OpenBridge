@@ -4,6 +4,7 @@ build/
 .next/
 out/
 coverage/
+/backend/reports/
 
 .env
 .env.*
@@ -14,3 +15,7 @@ coverage/
 Thumbs.db
 .vscode/
 .idea/
+
+# Reportes de los scripts de carga
+/backend/reports/
+OpenBridge — Contrato de API v1 (1).docx

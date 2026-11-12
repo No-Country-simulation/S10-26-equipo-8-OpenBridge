@@ -1,0 +1,221 @@
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  vector,
+} from 'drizzle-orm/pg-core';
+
+export const maintenanceLevel = pgEnum('maintenance_level', [
+  'ACTIVE',
+  'MODERATE',
+  'AT_RISK',
+  'ARCHIVED',
+]);
+
+const timestamps = {
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+};
+
+export const category = pgTable('category', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description'),
+  ...timestamps,
+});
+
+// Ficha técnica de cada repositorio del catálogo. Lo que viene de GitHub
+// se actualiza por github_id; health_score y maintenance_level los calcula
+// el pipeline de ingesta (OB-11).
+export const repository = pgTable(
+  'repository',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    githubId: bigint('github_id', { mode: 'number' }).notNull().unique(),
+    // Sin UNIQUE a propósito: si dos repos intercambian nombres en GitHub,
+    // la sincronización del día los ve un momento con el mismo full_name.
+    fullName: text('full_name').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    url: text('url').notNull(),
+    homepage: text('homepage'),
+    primaryLanguage: text('primary_language'),
+    licenseSpdx: text('license_spdx'),
+    stars: integer('stars').notNull().default(0),
+    forks: integer('forks').notNull().default(0),
+    openIssues: integer('open_issues').notNull().default(0),
+    lastCommitAt: timestamp('last_commit_at', { withTimezone: true }),
+    lastReleaseAt: timestamp('last_release_at', { withTimezone: true }),
+    archived: boolean('archived').notNull().default(false),
+    topics: text('topics')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    activeMaintainer: boolean('active_maintainer').notNull().default(false),
+    healthScore: smallint('health_score'),
+    maintenanceLevel: maintenanceLevel('maintenance_level'),
+    contentHash: text('content_hash'),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    check('repository_health_score_range', sql`${t.healthScore} BETWEEN 0 AND 100`),
+    index('repository_full_name_idx').on(t.fullName),
+  ],
+);
+
+// Muchos a muchos: una herramienta como Supabase es a la vez Base de Datos
+// y Autenticación, y tiene que aparecer al filtrar por cualquiera de las dos.
+export const repositoryCategory = pgTable(
+  'repository_category',
+  {
+    repositoryId: uuid('repository_id')
+      .notNull()
+      .references(() => repository.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => category.id, { onDelete: 'restrict' }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.repositoryId, t.categoryId] }),
+    // La PK ya sirve para buscar por repo; este índice cubre el filtro por categoría.
+    index('repository_category_category_id_idx').on(t.categoryId),
+  ],
+);
+
+export const integrationType = pgEnum('integration_type', [
+  'REST_API',
+  'DOCKER',
+  'SDK',
+  'WEBHOOK',
+  'CLI',
+]);
+export const ideaDifficulty = pgEnum('idea_difficulty', ['LOW', 'MEDIUM', 'HIGH']);
+export const ideaStatus = pgEnum('idea_status', ['DRAFT', 'APPROVED', 'REJECTED']);
+export const ideaSource = pgEnum('idea_source', ['LLM', 'HUMAN']);
+
+export type IdeaTrigger = { event: string; description: string };
+export type IdeaSnippet = { language: string; code: string };
+
+// Guía técnica de cómo integrar un repo. La validación completa vive en
+// src/ideas/schema.ts (Zod); los CHECK repiten las reglas que no pueden
+// romperse aunque alguien escriba directo en la base.
+export const integrationIdea = pgTable(
+  'integration_idea',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    repositoryId: uuid('repository_id')
+      .notNull()
+      .references(() => repository.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    integrationType: integrationType('integration_type').notNull(),
+    triggers: jsonb('triggers')
+      .$type<IdeaTrigger[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    snippet: jsonb('snippet').$type<IdeaSnippet>(),
+    stackCompatibility: text('stack_compatibility')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    difficulty: ideaDifficulty('difficulty').notNull(),
+    // Sin FK: Postgres no valida arrays contra otra tabla.
+    connectsWith: uuid('connects_with')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    status: ideaStatus('status').notNull().default('DRAFT'),
+    source: ideaSource('source').notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    check(
+      'integration_idea_webhook_triggers',
+      sql`${t.integrationType} <> 'WEBHOOK' OR jsonb_array_length(${t.triggers}) > 0`,
+    ),
+    check(
+      'integration_idea_snippet_language',
+      sql`${t.snippet} IS NULL OR coalesce(trim(${t.snippet}->>'language'), '') <> ''`,
+    ),
+    index('integration_idea_repository_id_idx').on(t.repositoryId),
+  ],
+);
+
+// Dimensión de bge-m3 (Ollama), elegido en OB-12 en lugar de nomic-embed-text
+// (768). Cambiar de modelo implica una migración nueva y regenerar todos los
+// embeddings.
+export const EMBEDDING_DIMENSIONS = 1024;
+
+export const embeddingEntityType = pgEnum('embedding_entity_type', [
+  'REPOSITORY',
+  'INTEGRATION_IDEA',
+]);
+
+// Un embedding por entidad. entity_id es polimórfico (repository o
+// integration_idea), por eso no tiene FK: quien borra la entidad borra su embedding.
+export const embedding = pgTable(
+  'embedding',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    entityType: embeddingEntityType('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    content: text('content').notNull(),
+    vector: vector('vector', { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    model: text('model').notNull(),
+    // sha256 del modelo y el texto enviado. Si no cambió, el
+    // vector no se recalcula (ver src/ingest/embeddings.ts). Null en los
+    // vectores previos a OB-12, que se regeneran en la próxima corrida.
+    contentHash: text('content_hash'),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('embedding_entity_idx').on(t.entityType, t.entityId),
+    index('embedding_vector_hnsw_idx').using('hnsw', t.vector.op('vector_cosine_ops')),
+  ],
+);
+
+export const syncRunStatus = pgEnum('sync_run_status', ['RUNNING', 'COMPLETED', 'FAILED']);
+
+// Una ejecución de la sincronización con GitHub. Se actualiza después de
+// cada lote para que, si el proceso se corta, el próximo arranque la retome
+// (ver src/ingest/sync-run.ts). La duración es finished_at - started_at; en
+// una ejecución retomada incluye el tiempo que estuvo cortada.
+export const syncRun = pgTable('sync_run', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  status: syncRunStatus('status').notNull().default('RUNNING'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  reposTotal: integer('repos_total').notNull(),
+  reposOk: integer('repos_ok').notNull().default(0),
+  reposFailed: integer('repos_failed').notNull().default(0),
+  // Puntos del límite de GitHub: la suma del costo de cada query y el saldo
+  // que informó la última.
+  rateLimitUsed: integer('rate_limit_used').notNull().default(0),
+  rateLimitRemaining: integer('rate_limit_remaining'),
+  rateLimitResetAt: timestamp('rate_limit_reset_at', { withTimezone: true }),
+  error: text('error'),
+  ...timestamps,
+});
+
+export type Category = typeof category.$inferSelect;
+export type Repository = typeof repository.$inferSelect;
+export type NewRepository = typeof repository.$inferInsert;
+export type IntegrationIdea = typeof integrationIdea.$inferSelect;
+export type NewIntegrationIdea = typeof integrationIdea.$inferInsert;
+export type Embedding = typeof embedding.$inferSelect;
+export type NewEmbedding = typeof embedding.$inferInsert;
+export type SyncRun = typeof syncRun.$inferSelect;

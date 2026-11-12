@@ -1,0 +1,65 @@
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleDashed,
+  TriangleAlert,
+  type LucideIcon,
+} from 'lucide-react';
+import type { MaintenanceLevel } from '@/lib/repositories';
+
+type Style = { icon: LucideIcon; label: string; classes: string };
+
+// Clases completas (no construidas) para que Tailwind las detecte.
+const styles: Record<MaintenanceLevel | 'UNKNOWN', Style> = {
+  // El pipeline todavía no calculó el nivel de este repositorio.
+  UNKNOWN: {
+    icon: CircleDashed,
+    label: 'Sin datos',
+    classes: 'bg-muted text-muted-foreground',
+  },
+  ACTIVE: {
+    icon: CircleCheck,
+    label: 'Activo',
+    classes: 'bg-health-active-tint text-health-active',
+  },
+  MODERATE: {
+    icon: CircleAlert,
+    label: 'Moderado',
+    classes: 'bg-health-moderate-tint text-health-moderate',
+  },
+  AT_RISK: {
+    icon: TriangleAlert,
+    label: 'En riesgo',
+    classes: 'bg-health-risk-tint text-health-risk',
+  },
+  ARCHIVED: {
+    icon: TriangleAlert,
+    label: 'Archivado',
+    classes: 'bg-health-risk-tint text-health-risk',
+  },
+};
+
+type Props = {
+  level: MaintenanceLevel | null;
+  score: number | null;
+  // Solo icono y puntaje, para espacios angostos como la tarjeta.
+  compact?: boolean;
+  // Solo el estado, para la ficha, donde el puntaje ya se muestra grande al lado.
+  withScore?: boolean;
+};
+
+export function HealthBadge({ level, score, compact = false, withScore = true }: Props) {
+  const { icon: Icon, label, classes } = styles[level ?? 'UNKNOWN'];
+  const showScore = withScore && score !== null;
+
+  return (
+    <span
+      className={`inline-flex ${withScore ? 'h-[22px]' : 'h-6'} shrink-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium ${classes}`}
+      title={compact ? (score === null ? label : `${label} · ${score}`) : undefined}
+    >
+      <Icon className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+      {compact ? <span className="sr-only">{label}</span> : <span>{label}</span>}
+      {showScore && <span className="font-mono tabular">{score}</span>}
+    </span>
+  );
+}

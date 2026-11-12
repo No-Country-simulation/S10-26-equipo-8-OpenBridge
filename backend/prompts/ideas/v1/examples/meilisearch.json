@@ -1,0 +1,23 @@
+{
+  "repository": {
+    "fullName": "meilisearch/meilisearch",
+    "description": "A lightning-fast search engine API",
+    "primaryLanguage": "Rust",
+    "topics": ["search-engine", "full-text-search", "typo-tolerance"],
+    "readme": "# Meilisearch\n\nMeilisearch is a fast search engine that fits into your apps, websites and workflow.\n\n## Features\n\n- Search-as-you-type results in less than 50 milliseconds\n- Typo tolerance\n- Filtering and faceted search\n- RESTful API\n\n## Getting started\n\nRun it with Docker:\n\n    docker run -p 7700:7700 getmeili/meilisearch\n\nThen add documents to an index with `POST /indexes/{index}/documents` and search with `POST /indexes/{index}/search`."
+  },
+  "ideas": [
+    {
+      "title": "Buscador de productos tolerante a errores de tipeo",
+      "summary": "Levantar Meilisearch en un contenedor, indexar el catálogo de productos y reemplazar las consultas LIKE de la base por búsquedas instantáneas que toleran errores de tipeo.",
+      "integrationType": "DOCKER",
+      "triggers": [],
+      "snippet": {
+        "language": "bash",
+        "code": "docker run -d -p 7700:7700 getmeili/meilisearch\n\ncurl -X POST 'http://localhost:7700/indexes/products/documents' \\\n  -H 'Content-Type: application/json' \\\n  --data-binary @products.json"
+      },
+      "stackCompatibility": ["docker", "node", "postgres"],
+      "difficulty": "MEDIUM"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+# Blueprint de Render para el servidor (OB-41). Guía paso a paso y
+# variables en docs/deploy.md.
+services:
+  - type: web
+    name: openbridge-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    # Solo las dependencias del backend: la interfaz se despliega en Vercel.
+    # --include=dev: TypeScript es devDependency y hace falta para compilar
+    # aunque el entorno tenga NODE_ENV=production.
+    buildCommand: npm ci -w backend --include=dev && npm run build -w backend
+    # El plan free no tiene preDeployCommand: las migraciones de Drizzle
+    # pendientes se aplican al arrancar, antes de abrir el puerto. Con una
+    # sola instancia alcanza; para escalar, pasarlas a preDeployCommand
+    # (Drizzle no bloquea migraciones simultáneas).
+    startCommand: npm run start:prod -w backend
+    healthCheckPath: /health
+    # Despliega con cada commit en main. Cuando exista la integración
+    # continua (OB-02), cambiar a checksPass: despliega solo si pasa.
+    autoDeployTrigger: commit
+    # Cambios solo en la interfaz no redespliegan el servidor.
+    buildFilter:
+      paths:
+        - backend/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+      ignoredPaths:
+        - backend/test/**
+        - '**/*.md'
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      # Secretos: sync false hace que Render los pida al crear el Blueprint y
+      # que vivan solo en su panel, nunca en el repositorio.
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: OLLAMA_BASE_URL
+        sync: false
+      - key: OLLAMA_API_KEY
+        sync: false

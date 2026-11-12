@@ -1,0 +1,47 @@
+name: Daily catalog sync
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-catalog-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GITHUB_TOKEN: ${{ secrets.CATALOG_GITHUB_TOKEN }}
+      OLLAMA_BASE_URL: http://127.0.0.1:11434
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+        options: >-
+          --health-cmd "ollama list || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pull embedding model
+        run: >-
+          curl --fail --silent --show-error --output /dev/null
+          --request POST http://127.0.0.1:11434/api/pull
+          --header 'Content-Type: application/json'
+          --data '{"model":"bge-m3","stream":false}'
+      - run: npm run db:migrate -w backend
+      - run: npm run db:sync -w backend

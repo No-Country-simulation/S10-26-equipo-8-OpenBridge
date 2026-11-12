@@ -1,0 +1,509 @@
+import { ApiError, apiFetch, isApiEnabled } from '@/lib/api';
+
+export type MaintenanceLevel = 'ACTIVE' | 'MODERATE' | 'AT_RISK' | 'ARCHIVED';
+
+// Elemento de la lista de GET /api/v1/repositories (contrato v1).
+export type Repository = {
+  id: string;
+  fullName: string;
+  name: string;
+  description: string | null;
+  primaryLanguage: string | null;
+  licenseSpdx: string | null;
+  stars: number;
+  // null mientras el pipeline no calculó el puntaje, el nivel o el último commit.
+  healthScore: number | null;
+  maintenanceLevel: MaintenanceLevel | null;
+  categories: { slug: string; name: string }[];
+  lastCommitAt: string | null;
+};
+
+const mockRepositories: Repository[] = [
+  {
+    id: 'mock-supabase',
+    fullName: 'supabase/supabase',
+    name: 'supabase',
+    description: 'Backend open source sobre Postgres: auth, storage, realtime y APIs.',
+    primaryLanguage: 'TypeScript',
+    licenseSpdx: 'Apache-2.0',
+    stars: 92400,
+    healthScore: 94,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'database', name: 'Base de datos' }],
+    lastCommitAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-keycloak',
+    fullName: 'keycloak/keycloak',
+    name: 'keycloak',
+    description: 'Gestión de identidades y accesos open source, con SSO y federación.',
+    primaryLanguage: 'Java',
+    licenseSpdx: 'Apache-2.0',
+    stars: 24500,
+    healthScore: 88,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 20 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-meilisearch',
+    fullName: 'meilisearch/meilisearch',
+    name: 'meilisearch',
+    description: 'Motor de búsqueda full-text rápido y tolerante a errores de tipeo.',
+    primaryLanguage: 'Rust',
+    licenseSpdx: 'MIT',
+    stars: 47800,
+    healthScore: 55,
+    maintenanceLevel: 'MODERATE',
+    categories: [{ slug: 'search', name: 'Búsqueda' }],
+    lastCommitAt: new Date(Date.now() - 12 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-plausible',
+    fullName: 'plausible/analytics',
+    name: 'analytics',
+    description:
+      'Analítica web simple y respetuosa con la privacidad, alternativa a Google Analytics.',
+    primaryLanguage: 'Elixir',
+    licenseSpdx: 'AGPL-3.0',
+    stars: 19600,
+    healthScore: 28,
+    maintenanceLevel: 'AT_RISK',
+    categories: [{ slug: 'analytics', name: 'Analítica' }],
+    lastCommitAt: new Date(Date.now() - 120 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-ollama',
+    fullName: 'ollama/ollama',
+    name: 'ollama',
+    description: 'Ejecutá modelos de lenguaje abiertos en tu propia máquina con una API simple.',
+    primaryLanguage: 'Go',
+    licenseSpdx: 'MIT',
+    stars: 128000,
+    healthScore: 91,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'ai', name: 'IA' }],
+    lastCommitAt: new Date(Date.now() - 5 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-sin-licencia',
+    fullName: 'acme/payments-kit',
+    name: 'payments-kit',
+    description: null,
+    primaryLanguage: null,
+    licenseSpdx: null,
+    stars: 340,
+    healthScore: 61,
+    maintenanceLevel: 'MODERATE',
+    categories: [],
+    lastCommitAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+  },
+];
+
+// Destacados del home: los de mejor puntaje de salud. El contrato v1 no define un endpoint propio,
+// así que equivale a GET /api/v1/repositories?sort=health&size=6. Sin NEXT_PUBLIC_API_URL
+// devuelve datos de prueba.
+export async function getRepositories(): Promise<Repository[]> {
+  if (!isApiEnabled) return mockRepositories;
+  const page = await apiFetch<Paginated<Repository>>('/repositories', {
+    query: { sort: 'health', size: 6 },
+    next: { revalidate: 60 },
+  });
+  return page.data;
+}
+
+// Solo para el catálogo: da más peso a las categorías y permite probar la paginación.
+// No entran en getRepositories() para no cambiar los destacados del home.
+const catalogOnlyRepositories: Repository[] = [
+  {
+    id: 'mock-authentik',
+    fullName: 'goauthentik/authentik',
+    name: 'authentik',
+    description: 'Proveedor de identidad con SSO, MFA y flujos de autenticación configurables.',
+    primaryLanguage: 'Python',
+    licenseSpdx: 'MIT',
+    stars: 15200,
+    healthScore: 82,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 8 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-zitadel',
+    fullName: 'zitadel/zitadel',
+    name: 'zitadel',
+    description: 'Gestión de identidades multi-tenant con OIDC, SAML y passkeys.',
+    primaryLanguage: 'Go',
+    licenseSpdx: 'Apache-2.0',
+    stars: 9200,
+    healthScore: 79,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 30 * 3_600_000).toISOString(),
+  },
+  {
+    id: 'mock-kratos',
+    fullName: 'ory/kratos',
+    name: 'kratos',
+    description: 'Servidor de identidad y gestión de usuarios pensado para la nube.',
+    primaryLanguage: 'Go',
+    licenseSpdx: 'Apache-2.0',
+    stars: 11500,
+    healthScore: 58,
+    maintenanceLevel: 'MODERATE',
+    categories: [{ slug: 'auth', name: 'Autenticación' }],
+    lastCommitAt: new Date(Date.now() - 25 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-lago',
+    fullName: 'getlago/lago',
+    name: 'lago',
+    description: 'Facturación basada en uso y suscripciones, alternativa abierta a Stripe Billing.',
+    primaryLanguage: 'Ruby',
+    licenseSpdx: 'AGPL-3.0',
+    stars: 7800,
+    healthScore: 76,
+    maintenanceLevel: 'ACTIVE',
+    categories: [{ slug: 'payments', name: 'Pagos' }],
+    lastCommitAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'mock-killbill',
+    fullName: 'killbill/killbill',
+    name: 'killbill',
+    description: 'Plataforma de facturación y pagos recurrentes.',
+    primaryLanguage: 'Java',
+    licenseSpdx: 'Apache-2.0',
+    stars: 4100,
+    healthScore: 34,
+    maintenanceLevel: 'AT_RISK',
+    categories: [{ slug: 'payments', name: 'Pagos' }],
+    lastCommitAt: new Date(Date.now() - 95 * 86_400_000).toISOString(),
+  },
+];
+
+export type Paginated<T> = {
+  data: T[];
+  meta: { page: number; size: number; total: number; totalPages: number };
+};
+
+export type RepositorySort = 'health' | 'stars' | 'updated' | 'relevance';
+
+export type ListParams = {
+  category?: string;
+  language?: string;
+  license?: string;
+  maintenance?: MaintenanceLevel[];
+  minStars?: number;
+  q?: string;
+  sort?: RepositorySort;
+  page?: number;
+  size?: number;
+};
+
+export const DEFAULT_PAGE_SIZE = 20;
+
+// Mínimo de caracteres para buscar por texto (contrato v1).
+export const MIN_QUERY_LENGTH = 2;
+
+const sorters: Record<
+  Exclude<RepositorySort, 'relevance'>,
+  (a: Repository, b: Repository) => number
+> = {
+  health: (a, b) => (b.healthScore ?? -1) - (a.healthScore ?? -1),
+  stars: (a, b) => b.stars - a.stars,
+  updated: (a, b) => (b.lastCommitAt ?? '').localeCompare(a.lastCommitAt ?? ''),
+};
+
+const searchableText = (r: Repository) =>
+  normalize(
+    [
+      r.fullName,
+      r.description ?? '',
+      r.primaryLanguage ?? '',
+      ...r.categories.map((c) => c.name),
+    ].join(' '),
+  );
+
+// Relevancia de prueba: pesa más que el texto esté en el nombre que en la descripción.
+const relevance = (r: Repository, term: string) =>
+  (normalize(r.fullName).includes(term) ? 2 : 0) + (searchableText(r).includes(term) ? 1 : 0);
+
+// GET /api/v1/repositories?category=…&q=…&sort=…&page=…&size=… (contrato v1, paginado).
+// Sin NEXT_PUBLIC_API_URL filtra y ordena los datos de prueba.
+export async function listRepositories(params: ListParams = {}): Promise<Paginated<Repository>> {
+  if (!isApiEnabled) return listMockRepositories(params);
+  const { sort = params.q ? 'relevance' : 'stars', ...rest } = params;
+  return apiFetch<Paginated<Repository>>('/repositories', {
+    query: { ...rest, sort },
+    next: { revalidate: 60 },
+  });
+}
+
+async function listMockRepositories({
+  category,
+  language,
+  license,
+  maintenance,
+  minStars,
+  q,
+  sort = q ? 'relevance' : 'stars',
+  page = 1,
+  size = DEFAULT_PAGE_SIZE,
+}: ListParams = {}): Promise<Paginated<Repository>> {
+  const term = normalize((q ?? '').trim());
+  const matches = [...mockRepositories, ...catalogOnlyRepositories]
+    .filter((r) => !category || r.categories.some((c) => c.slug === category))
+    .filter((r) => !language || r.primaryLanguage === language)
+    .filter((r) => !license || r.licenseSpdx === license)
+    .filter(
+      (r) =>
+        !maintenance?.length ||
+        (r.maintenanceLevel !== null && maintenance.includes(r.maintenanceLevel)),
+    )
+    .filter((r) => !minStars || r.stars >= minStars)
+    .filter((r) => !term || searchableText(r).includes(term))
+    .sort(
+      sort === 'relevance'
+        ? (a, b) => relevance(b, term) - relevance(a, term) || sorters.stars(a, b)
+        : sorters[sort],
+    );
+  const start = (page - 1) * size;
+
+  return {
+    data: matches.slice(start, start + size),
+    meta: { page, size, total: matches.length, totalPages: Math.ceil(matches.length / size) },
+  };
+}
+
+export const MAINTENANCE_LEVELS: MaintenanceLevel[] = ['ACTIVE', 'MODERATE', 'AT_RISK', 'ARCHIVED'];
+
+type FilterOption = { value: string; count: number };
+
+// Forma de GET /api/v1/filters (contrato v1): opciones con su cantidad de repositorios.
+export type CatalogFilters = {
+  languages: FilterOption[];
+  licenses: FilterOption[];
+  categories: (FilterOption & { label: string })[];
+  maintenanceLevels: (FilterOption & { value: MaintenanceLevel })[];
+  stars: { min: number; max: number };
+};
+
+function countBy<T extends string>(values: (T | null | undefined)[]) {
+  const counts = new Map<T, number>();
+  for (const value of values) if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+}
+
+// GET /api/v1/filters. Sin NEXT_PUBLIC_API_URL calcula las opciones con los datos de prueba.
+export async function getFilters(): Promise<CatalogFilters> {
+  if (!isApiEnabled) return getMockFilters();
+  return apiFetch<CatalogFilters>('/filters', { next: { revalidate: 300 } });
+}
+
+function getMockFilters(): CatalogFilters {
+  const all = [...mockRepositories, ...catalogOnlyRepositories];
+  const categoryNames = new Map(all.flatMap((r) => r.categories.map((c) => [c.slug, c.name])));
+  const stars = all.map((r) => r.stars);
+
+  return {
+    languages: countBy(all.map((r) => r.primaryLanguage)),
+    licenses: countBy(all.map((r) => r.licenseSpdx)),
+    categories: countBy(all.flatMap((r) => r.categories.map((c) => c.slug))).map((o) => ({
+      ...o,
+      label: categoryNames.get(o.value) ?? o.value,
+    })),
+    maintenanceLevels: MAINTENANCE_LEVELS.map((value) => ({
+      value,
+      count: all.filter((r) => r.maintenanceLevel === value).length,
+    })).filter((o) => o.count > 0),
+    stars: { min: Math.min(...stars), max: Math.max(...stars) },
+  };
+}
+
+const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+export type SearchResult = { data: Repository[]; total: number };
+
+// GET /api/v1/repositories?q=…&size=…, con `total` de `meta.total`. Sin NEXT_PUBLIC_API_URL filtra
+// los datos de prueba por nombre, descripción y categoría. Se llama desde el navegador.
+export async function searchRepositories(query: string, size = 3): Promise<SearchResult> {
+  const term = normalize(query.trim());
+  if (!term) return { data: [], total: 0 };
+
+  if (isApiEnabled) {
+    const page = await apiFetch<Paginated<Repository>>('/repositories', {
+      query: { q: query.trim(), size },
+    });
+    return { data: page.data, total: page.meta.total };
+  }
+
+  const matches = mockRepositories.filter((r) =>
+    normalize(
+      [r.fullName, r.description ?? '', ...r.categories.flatMap((c) => [c.name, c.slug])].join(' '),
+    ).includes(term),
+  );
+  return { data: matches.slice(0, size), total: matches.length };
+}
+
+const compactNumber = new Intl.NumberFormat('en', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+
+// 92400 -> "92.4k"
+export function formatStars(stars: number) {
+  return compactNumber.format(stars).toLowerCase();
+}
+
+// ISO 8601 -> "hace 2 h", "hace 12 d", "hace 4 meses"
+export function formatLastCommit(iso: string | null, now = Date.now()) {
+  if (iso === null) return 'sin datos';
+  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  const units = [
+    [31_536_000, (n: number) => (n === 1 ? '1 año' : `${n} años`)],
+    [2_592_000, (n: number) => (n === 1 ? '1 mes' : `${n} meses`)],
+    [86_400, (n: number) => `${n} d`],
+    [3_600, (n: number) => `${n} h`],
+    [60, (n: number) => `${n} min`],
+  ] as const;
+
+  for (const [size, label] of units) {
+    if (seconds >= size) return `hace ${label(Math.floor(seconds / size))}`;
+  }
+  return 'hace un momento';
+}
+
+export type IntegrationType = 'REST_API' | 'DOCKER' | 'SDK' | 'WEBHOOK' | 'CLI';
+export type IdeaDifficulty = 'LOW' | 'MEDIUM' | 'HIGH';
+
+// Elemento de `integrationIdeas` en GET /api/v1/repositories/:id (contrato v1).
+export type IntegrationIdea = {
+  id: string;
+  title: string;
+  summary: string;
+  integrationType: IntegrationType;
+  difficulty: IdeaDifficulty;
+  triggers: { event: string; description: string }[];
+  snippet: { language: string; code: string } | null;
+  stackCompatibility: string[];
+  connectsWith: { id: string; fullName: string }[];
+};
+
+// GET /api/v1/repositories/:id (contrato v1): el listado más los campos de la ficha.
+export type RepositoryDetail = Repository & {
+  url: string;
+  homepage: string | null;
+  forks: number;
+  openIssues: number;
+  lastReleaseAt: string | null;
+  archived: boolean;
+  topics: string[];
+  activeMaintainer: boolean;
+  lastSyncedAt: string;
+  // [] = ideas en curaduría; el contrato nunca expone las DRAFT o REJECTED.
+  integrationIdeas: IntegrationIdea[];
+};
+
+const mockIntegrationIdeas: Record<string, IntegrationIdea[]> = {
+  'mock-keycloak': [
+    {
+      id: 'idea-keycloak-nextjs',
+      title: 'SSO para una app Next.js',
+      summary: 'Delegar el login en Keycloak vía OpenID Connect.',
+      integrationType: 'REST_API',
+      difficulty: 'MEDIUM',
+      triggers: [{ event: 'user.login', description: 'Inicio de sesión' }],
+      snippet: {
+        language: 'typescript',
+        code: "import KeycloakProvider from 'next-auth/providers/keycloak'\n\nKeycloakProvider({\n  clientId: process.env.KC_CLIENT_ID,\n  clientSecret: process.env.KC_CLIENT_SECRET,\n  issuer: 'https://auth.miapp.com/realms/miapp',\n})",
+      },
+      stackCompatibility: ['nextjs', 'express'],
+      connectsWith: [{ id: 'mock-authentik', fullName: 'goauthentik/authentik' }],
+    },
+    {
+      id: 'idea-keycloak-docker',
+      title: 'Keycloak self-hosted con Docker',
+      summary: 'Levantar Keycloak con su base de datos en un solo compose.',
+      integrationType: 'DOCKER',
+      difficulty: 'LOW',
+      triggers: [],
+      snippet: {
+        language: 'yaml',
+        code: 'services:\n  keycloak:\n    image: quay.io/keycloak/keycloak\n    command: start-dev\n    ports:\n      - "8080:8080"',
+      },
+      stackCompatibility: ['docker'],
+      connectsWith: [],
+    },
+  ],
+  'mock-supabase': [
+    {
+      id: 'idea-supabase-client',
+      title: 'Cliente JavaScript tipado',
+      summary: 'La forma más rápida desde Next.js: auth, queries y realtime con un solo cliente.',
+      integrationType: 'SDK',
+      difficulty: 'LOW',
+      triggers: [{ event: 'row.insert', description: 'Nuevo pedido en la tabla orders' }],
+      snippet: {
+        language: 'typescript',
+        code: "import { createClient } from '@supabase/supabase-js'\n\nconst supabase = createClient(\n  process.env.SUPABASE_URL,\n  process.env.SUPABASE_ANON_KEY\n)\n\nconst { data } = await supabase\n  .from('orders')\n  .select('id, status, total')",
+      },
+      stackCompatibility: ['nextjs', 'react', 'nodejs', 'typescript'],
+      connectsWith: [{ id: 'mock-keycloak', fullName: 'keycloak/keycloak' }],
+    },
+  ],
+};
+
+const mockHomepages: Record<string, string> = {
+  'mock-supabase': 'https://supabase.com',
+  'mock-keycloak': 'https://www.keycloak.org',
+  'mock-meilisearch': 'https://www.meilisearch.com',
+  'mock-plausible': 'https://plausible.io',
+  'mock-ollama': 'https://ollama.com',
+};
+
+// GET /api/v1/repositories/:id. Devuelve null si no existe (404) para que la página muestre «no
+// encontrado»; cualquier otro fallo se lanza. Sin NEXT_PUBLIC_API_URL usa datos de prueba.
+export async function getRepository(id: string): Promise<RepositoryDetail | null> {
+  if (!isApiEnabled) return getMockRepository(id);
+  try {
+    const { data } = await apiFetch<{ data: RepositoryDetail }>(
+      `/repositories/${encodeURIComponent(id)}`,
+      { next: { revalidate: 60 } },
+    );
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
+async function getMockRepository(id: string): Promise<RepositoryDetail | null> {
+  const repository = [...mockRepositories, ...catalogOnlyRepositories].find((r) => r.id === id);
+  if (!repository) return null;
+
+  const risky =
+    repository.maintenanceLevel === 'AT_RISK' || repository.maintenanceLevel === 'ARCHIVED';
+  const lastCommit = new Date(repository.lastCommitAt ?? Date.now()).getTime();
+
+  return {
+    ...repository,
+    url: `https://github.com/${repository.fullName}`,
+    homepage: mockHomepages[id] ?? null,
+    forks: Math.round(repository.stars / 9),
+    openIssues: risky ? 212 : Math.round(repository.stars / 130),
+    lastReleaseAt: risky ? null : new Date(lastCommit - 5 * 86_400_000).toISOString(),
+    archived: repository.maintenanceLevel === 'ARCHIVED',
+    topics: [
+      ...repository.categories.map((c) => c.slug),
+      ...(repository.primaryLanguage ? [repository.primaryLanguage.toLowerCase()] : []),
+      'open-source',
+    ],
+    activeMaintainer: !risky,
+    lastSyncedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+    integrationIdeas: mockIntegrationIdeas[id] ?? [],
+  };
+}
