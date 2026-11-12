@@ -40,7 +40,7 @@ export function HealthPanel({ repository }: { repository: RepositoryDetail }) {
     <section aria-label="Salud" className={card}>
       <div className="flex items-end justify-between">
         <p className="font-mono">
-          <span className="text-4xl font-semibold tabular-nums">{healthScore}</span>
+          <span className="text-4xl font-semibold tabular-nums">{healthScore ?? '—'}</span>
           <span className="text-[13px] text-muted-foreground">/100</span>
         </p>
         <HealthBadge level={maintenanceLevel} score={healthScore} withScore={false} />
@@ -50,13 +50,16 @@ export function HealthPanel({ repository }: { repository: RepositoryDetail }) {
         aria-label="Puntaje de salud"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={healthScore}
+        aria-valuenow={healthScore ?? undefined}
+        aria-valuetext={healthScore === null ? 'Sin datos' : undefined}
         className="h-1 overflow-hidden rounded-full bg-muted"
       >
-        <div
-          className={`h-full rounded-full ${bar[maintenanceLevel]}`}
-          style={{ width: `${healthScore}%` }}
-        />
+        {healthScore !== null && maintenanceLevel !== null && (
+          <div
+            className={`h-full rounded-full ${bar[maintenanceLevel]}`}
+            style={{ width: `${healthScore}%` }}
+          />
+        )}
       </div>
       <p className="flex gap-2 text-xs leading-4 text-muted-foreground">
         <Info className="mt-px size-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
