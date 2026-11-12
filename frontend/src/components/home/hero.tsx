@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { HeroSearch } from '@/components/home/hero-search';
 
-const popularSearches = ['Autenticación con SSO', 'Búsqueda full-text', 'Pagos recurrentes'];
+const popularSearches = ['Autenticación con SSO', 'Búsqueda full-text', 'Pagos y facturación'];
 
 const chipClass =
   'inline-flex h-8 items-center rounded-full px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40';
