@@ -32,9 +32,11 @@ export function CategoryCard({ category }: { category: Category }) {
             {category.repositoryCount}
           </span>
         </div>
-        <p className="truncate text-xs text-muted-foreground md:text-[13px]">
-          {category.description}
-        </p>
+        {category.description && (
+          <p className="truncate text-xs text-muted-foreground md:text-[13px]">
+            {category.description}
+          </p>
+        )}
       </div>
       <ChevronRight
         className="size-4 shrink-0 text-muted-foreground md:transition-transform md:duration-150 md:group-hover:translate-x-0.5"
