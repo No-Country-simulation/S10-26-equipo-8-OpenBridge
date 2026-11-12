@@ -22,9 +22,11 @@ import {
 // - componer es inmediato (sin E/S).
 export const PROPOSAL_MODEL_BUDGET_MS = 23_000;
 export const PROPOSAL_TOTAL_BUDGET_MS = 27_000;
-// Candidatos por capacidad cuando el usuario restringe licencias (sin
-// restricción alcanzan los 3 de OB-33). Mismo costo de embeddings: la consulta
-// se vectoriza una vez, solo crece el LIMIT de la búsqueda.
+// Candidatos por capacidad. Más que los 3 de OB-33 para que el composer los
+// re-ordene por salud y popularidad además de similitud; con licencias pedidas,
+// más todavía para encontrar un compatible. Mismo costo de embeddings: la
+// consulta se vectoriza una vez, solo crece el LIMIT de la búsqueda.
+export const CANDIDATES_FOR_PROPOSAL = 8;
 export const CANDIDATES_WITH_LICENSE_FILTER = 10;
 
 // Las búsquedas no terminaron dentro del presupuesto total (Ollama no
@@ -132,8 +134,8 @@ export async function createProposal(
   if (analysis.status === 'NEEDS_CONTEXT') return analysis;
 
   stage('RETRIEVING');
-  // Pedir ya los candidatos con la salud mínima del composer: así los 3 por
-  // capacidad son elegibles por salud.
+  // Pedir ya los candidatos con la salud mínima del composer: así todos los
+  // candidatos de cada capacidad son elegibles por salud.
   const minHealth = Math.max(MIN_MATURE_HEALTH, constraints.minHealth ?? 0);
   const { withCandidates, repositories } = await withDeadline(
     (async () => {
@@ -141,9 +143,11 @@ export async function createProposal(
         embedQuery,
         minHealth,
         // La búsqueda no filtra por licencia: con licencias pedidas se traen más
-        // candidatos para que el composer encuentre un compatible fuera de los
-        // 3 primeros en lugar de declarar un hueco.
-        limit: constraints.licenses?.length ? CANDIDATES_WITH_LICENSE_FILTER : undefined,
+        // candidatos para que el composer encuentre un compatible en lugar de
+        // declarar un hueco.
+        limit: constraints.licenses?.length
+          ? Math.max(CANDIDATES_FOR_PROPOSAL, CANDIDATES_WITH_LICENSE_FILTER)
+          : CANDIDATES_FOR_PROPOSAL,
         search,
       });
       if (signal?.aborted) throw new ProposalAbortedError();
@@ -165,7 +169,7 @@ export async function createProposal(
       reason: capability.reason,
       integrationType: capability.integrationType,
       dependsOn: capability.dependsOn,
-      candidateIds: candidates.map((c) => c.repository.id),
+      candidates: candidates.map((c) => ({ id: c.repository.id, similarity: c.similarity })),
     })),
     repositories,
     constraints,

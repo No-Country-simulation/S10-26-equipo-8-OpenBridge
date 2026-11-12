@@ -6,15 +6,30 @@ import type { IntegrationType, Proposal, ProposalConstraints } from './schema.js
 export const MIN_MATURE_HEALTH = 40;
 export const NO_MATURE_OPTION = 'Sin opción madura en el catálogo';
 
-// Lo que el composer necesita de cada capacidad: lo que dijo el modelo y los
-// ids de sus candidatos, en el orden de la búsqueda (más parecido primero).
+// Pesos del puntaje con el que se ordenan los candidatos elegibles de cada
+// capacidad (suman 1). La similitud manda (es lo que dice si el repo resuelve
+// la capacidad), pero entre candidatos parecidos desempatan la salud y la
+// popularidad: sin ellas, un repo de nicho apenas más parecido le ganaba a
+// meilisearch o a postgres. Calibrados con la evaluación de OB-37.
+export const SIMILARITY_WEIGHT = 0.6;
+export const HEALTH_WEIGHT = 0.25;
+export const POPULARITY_WEIGHT = 0.15;
+
+// Un candidato de la búsqueda: id del repo y similitud con la consulta (0-1).
+export interface ComposerCandidate {
+  id: string;
+  similarity: number;
+}
+
+// Lo que el composer necesita de cada capacidad: lo que dijo el modelo y sus
+// candidatos, en el orden de la búsqueda (más parecido primero).
 export interface ComposerCapability {
   key: string;
   name: string;
   reason: string;
   integrationType: IntegrationType;
   dependsOn: string[];
-  candidateIds: string[];
+  candidates: ComposerCandidate[];
 }
 
 // Datos reales de un candidato, leídos de la base (ver hydrateRepositories).
@@ -33,23 +48,51 @@ type Connection = Proposal['connections'][number];
 
 const starsFormat = new Intl.NumberFormat('es-AR');
 
+type EligibleRepository = HydratedRepository & { healthScore: number };
+
 // Frase determinística: la razón del modelo más datos del catálogo. Nada que
-// el catálogo no respalde.
-function justify(reason: string, repo: HydratedRepository & { healthScore: number }): string {
-  const sentence = /[.!?]$/.test(reason.trim()) ? reason.trim() : `${reason.trim()}.`;
+// el catálogo no respalde. A la razón se le saca el cierre (espacios, puntos,
+// "!", "?" o "…") para terminarla con un solo punto: nunca "..".
+function justify(reason: string, repo: EligibleRepository): string {
+  const trimmed = reason.replace(/[\s.!?…]+$/u, '');
   const license = repo.licenseSpdx ? `licencia ${repo.licenseSpdx}` : 'sin licencia declarada';
-  return (
-    `${sentence} ${repo.fullName} tiene salud ${repo.healthScore}/100, ${license} y ` +
-    `${starsFormat.format(repo.stars)} estrellas en GitHub.`
-  );
+  const facts =
+    `${repo.fullName} tiene salud ${repo.healthScore}/100, ${license} y ` +
+    `${starsFormat.format(repo.stars)} estrellas en GitHub.`;
+  return trimmed ? `${trimmed}. ${facts}` : facts;
+}
+
+// Ordena los candidatos elegibles de una capacidad, el mejor primero:
+//   SIMILARITY_WEIGHT * similitud + HEALTH_WEIGHT * salud/100
+//   + POPULARITY_WEIGHT * log10(estrellas + 1) / log10(máx. estrellas + 1)
+// La popularidad es relativa a los candidatos de la capacidad y logarítmica
+// (50k estrellas no valen 10 veces 5k). Empate: el orden de la búsqueda.
+function rank(
+  candidates: { repo: EligibleRepository; similarity: number }[],
+): EligibleRepository[] {
+  const maxStars = Math.max(0, ...candidates.map(({ repo }) => repo.stars));
+  const popularity = (stars: number) =>
+    maxStars > 0 ? Math.log10(Math.max(0, stars) + 1) / Math.log10(maxStars + 1) : 0;
+  return candidates
+    .map(({ repo, similarity }, index) => ({
+      repo,
+      index,
+      score:
+        SIMILARITY_WEIGHT * similarity +
+        HEALTH_WEIGHT * (repo.healthScore / 100) +
+        POPULARITY_WEIGHT * popularity(repo.stars),
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ repo }) => repo);
 }
 
 // Arma la propuesta sin base ni modelo: todo sale de las capacidades del
 // modelo y de los repos hidratados. Reglas:
-// - Componente: el primer candidato elegible (salud >= max(40, minHealth) y,
-//   si se pidieron licencias, una de ellas) que no se recomendó ya para otra
-//   capacidad; si todos los elegibles ya se usaron, el primero de ellos.
-//   Alternativa: el siguiente elegible. Sin elegibles, un gap.
+// - Elegibles: salud >= max(40, minHealth) y, si se pidieron licencias, una
+//   de ellas; se ordenan por puntaje (ver rank).
+// - Componente: el mejor elegible que no se recomendó ya para otra capacidad;
+//   si todos ya se usaron, el mejor de ellos. Alternativa: el siguiente del
+//   mismo orden. Sin elegibles, un gap.
 // - Los candidatos que no están en `repositories` (no existen en el
 //   catálogo) se descartan.
 // - Conexiones, solo entre componentes recomendados y a lo sumo una por par
@@ -68,9 +111,7 @@ export function composeProposal(
   const minHealth = Math.max(MIN_MATURE_HEALTH, constraints.minHealth ?? 0);
   const licenses = new Set((constraints.licenses ?? []).map((spdx) => spdx.toLowerCase()));
 
-  const isEligible = (
-    repo: HydratedRepository | undefined,
-  ): repo is HydratedRepository & { healthScore: number } =>
+  const isEligible = (repo: HydratedRepository | undefined): repo is EligibleRepository =>
     repo !== undefined &&
     repo.healthScore !== null &&
     repo.healthScore >= minHealth &&
@@ -83,9 +124,15 @@ export function composeProposal(
   const chosen = new Map<string, string>();
 
   for (const capability of capabilities) {
-    const eligible = [...new Set(capability.candidateIds)]
-      .map((candidateId) => byId.get(candidateId))
-      .filter(isEligible);
+    const seen = new Set<string>();
+    const eligible = rank(
+      capability.candidates.flatMap(({ id: candidateId, similarity }) => {
+        const repo = byId.get(candidateId);
+        if (seen.has(candidateId) || !isEligible(repo)) return [];
+        seen.add(candidateId);
+        return [{ repo, similarity }];
+      }),
+    );
     if (eligible.length === 0) {
       gaps.push({ capability: capability.key, message: NO_MATURE_OPTION });
       continue;
