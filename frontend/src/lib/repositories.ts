@@ -1,3 +1,5 @@
+import { ApiError, apiFetch, isApiEnabled } from '@/lib/api';
+
 export type MaintenanceLevel = 'ACTIVE' | 'MODERATE' | 'AT_RISK' | 'ARCHIVED';
 
 // Elemento de la lista de GET /api/v1/repositories (contrato v1).
@@ -9,10 +11,11 @@ export type Repository = {
   primaryLanguage: string | null;
   licenseSpdx: string | null;
   stars: number;
-  healthScore: number;
-  maintenanceLevel: MaintenanceLevel;
+  // null mientras el pipeline no calculó el puntaje, el nivel o el último commit.
+  healthScore: number | null;
+  maintenanceLevel: MaintenanceLevel | null;
   categories: { slug: string; name: string }[];
-  lastCommitAt: string;
+  lastCommitAt: string | null;
 };
 
 const mockRepositories: Repository[] = [
@@ -97,10 +100,16 @@ const mockRepositories: Repository[] = [
   },
 ];
 
-// Mientras el backend (OB-22) no esté listo devuelve datos de prueba;
-// después se cambia por el fetch a GET /api/v1/repositories.
+// Destacados del home: los de mejor puntaje de salud. El contrato v1 no define un endpoint propio,
+// así que equivale a GET /api/v1/repositories?sort=health&size=6. Sin NEXT_PUBLIC_API_URL
+// devuelve datos de prueba.
 export async function getRepositories(): Promise<Repository[]> {
-  return mockRepositories;
+  if (!isApiEnabled) return mockRepositories;
+  const page = await apiFetch<Paginated<Repository>>('/repositories', {
+    query: { sort: 'health', size: 6 },
+    next: { revalidate: 60 },
+  });
+  return page.data;
 }
 
 // Solo para el catálogo: da más peso a las categorías y permite probar la paginación.
@@ -201,9 +210,9 @@ const sorters: Record<
   Exclude<RepositorySort, 'relevance'>,
   (a: Repository, b: Repository) => number
 > = {
-  health: (a, b) => b.healthScore - a.healthScore,
+  health: (a, b) => (b.healthScore ?? -1) - (a.healthScore ?? -1),
   stars: (a, b) => b.stars - a.stars,
-  updated: (a, b) => b.lastCommitAt.localeCompare(a.lastCommitAt),
+  updated: (a, b) => (b.lastCommitAt ?? '').localeCompare(a.lastCommitAt ?? ''),
 };
 
 const searchableText = (r: Repository) =>
@@ -220,9 +229,18 @@ const searchableText = (r: Repository) =>
 const relevance = (r: Repository, term: string) =>
   (normalize(r.fullName).includes(term) ? 2 : 0) + (searchableText(r).includes(term) ? 1 : 0);
 
-// Equivale a GET /api/v1/repositories?category=…&q=…&sort=…&page=…&size=… (contrato v1, paginado).
-// Hasta que el backend (OB-22) esté listo filtra y ordena los datos de prueba.
-export async function listRepositories({
+// GET /api/v1/repositories?category=…&q=…&sort=…&page=…&size=… (contrato v1, paginado).
+// Sin NEXT_PUBLIC_API_URL filtra y ordena los datos de prueba.
+export async function listRepositories(params: ListParams = {}): Promise<Paginated<Repository>> {
+  if (!isApiEnabled) return listMockRepositories(params);
+  const { sort = params.q ? 'relevance' : 'stars', ...rest } = params;
+  return apiFetch<Paginated<Repository>>('/repositories', {
+    query: { ...rest, sort },
+    next: { revalidate: 60 },
+  });
+}
+
+async function listMockRepositories({
   category,
   language,
   license,
@@ -238,7 +256,11 @@ export async function listRepositories({
     .filter((r) => !category || r.categories.some((c) => c.slug === category))
     .filter((r) => !language || r.primaryLanguage === language)
     .filter((r) => !license || r.licenseSpdx === license)
-    .filter((r) => !maintenance?.length || maintenance.includes(r.maintenanceLevel))
+    .filter(
+      (r) =>
+        !maintenance?.length ||
+        (r.maintenanceLevel !== null && maintenance.includes(r.maintenanceLevel)),
+    )
     .filter((r) => !minStars || r.stars >= minStars)
     .filter((r) => !term || searchableText(r).includes(term))
     .sort(
@@ -275,9 +297,13 @@ function countBy<T extends string>(values: (T | null | undefined)[]) {
     .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
 
-// Equivale a GET /api/v1/filters. Hasta que exista el endpoint real (OB-28) calcula las opciones
-// a partir de los datos de prueba.
+// GET /api/v1/filters. Sin NEXT_PUBLIC_API_URL calcula las opciones con los datos de prueba.
 export async function getFilters(): Promise<CatalogFilters> {
+  if (!isApiEnabled) return getMockFilters();
+  return apiFetch<CatalogFilters>('/filters', { next: { revalidate: 300 } });
+}
+
+function getMockFilters(): CatalogFilters {
   const all = [...mockRepositories, ...catalogOnlyRepositories];
   const categoryNames = new Map(all.flatMap((r) => r.categories.map((c) => [c.slug, c.name])));
   const stars = all.map((r) => r.stars);
@@ -301,11 +327,18 @@ const normalize = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, ''
 
 export type SearchResult = { data: Repository[]; total: number };
 
-// Equivale a GET /api/v1/repositories?q=…&size=…, con `total` de `meta.total`; hasta que exista
-// la búsqueda real (OB-27) filtra los datos de prueba por nombre, descripción y categoría.
+// GET /api/v1/repositories?q=…&size=…, con `total` de `meta.total`. Sin NEXT_PUBLIC_API_URL filtra
+// los datos de prueba por nombre, descripción y categoría. Se llama desde el navegador.
 export async function searchRepositories(query: string, size = 3): Promise<SearchResult> {
   const term = normalize(query.trim());
   if (!term) return { data: [], total: 0 };
+
+  if (isApiEnabled) {
+    const page = await apiFetch<Paginated<Repository>>('/repositories', {
+      query: { q: query.trim(), size },
+    });
+    return { data: page.data, total: page.meta.total };
+  }
 
   const matches = mockRepositories.filter((r) =>
     normalize(
@@ -326,7 +359,8 @@ export function formatStars(stars: number) {
 }
 
 // ISO 8601 -> "hace 2 h", "hace 12 d", "hace 4 meses"
-export function formatLastCommit(iso: string, now = Date.now()) {
+export function formatLastCommit(iso: string | null, now = Date.now()) {
+  if (iso === null) return 'sin datos';
   const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
   const units = [
     [31_536_000, (n: number) => (n === 1 ? '1 año' : `${n} años`)],
@@ -430,15 +464,30 @@ const mockHomepages: Record<string, string> = {
   'mock-ollama': 'https://ollama.com',
 };
 
-// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
-// Se cambia por el fetch a GET /api/v1/repositories/:id cuando el backend esté listo.
+// GET /api/v1/repositories/:id. Devuelve null si no existe (404) para que la página muestre «no
+// encontrado»; cualquier otro fallo se lanza. Sin NEXT_PUBLIC_API_URL usa datos de prueba.
 export async function getRepository(id: string): Promise<RepositoryDetail | null> {
+  if (!isApiEnabled) return getMockRepository(id);
+  try {
+    const { data } = await apiFetch<{ data: RepositoryDetail }>(
+      `/repositories/${encodeURIComponent(id)}`,
+      { next: { revalidate: 60 } },
+    );
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
+async function getMockRepository(id: string): Promise<RepositoryDetail | null> {
   const repository = [...mockRepositories, ...catalogOnlyRepositories].find((r) => r.id === id);
   if (!repository) return null;
 
   const risky =
     repository.maintenanceLevel === 'AT_RISK' || repository.maintenanceLevel === 'ARCHIVED';
-  const lastCommit = new Date(repository.lastCommitAt).getTime();
+  const lastCommit = new Date(repository.lastCommitAt ?? Date.now()).getTime();
 
   return {
     ...repository,

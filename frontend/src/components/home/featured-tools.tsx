@@ -11,7 +11,7 @@ const grid = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3';
 export async function FeaturedTools() {
   const repositories = await getRepositories();
   const featured = [...repositories]
-    .sort((a, b) => b.healthScore - a.healthScore)
+    .sort((a, b) => (b.healthScore ?? -1) - (a.healthScore ?? -1))
     .slice(0, FEATURED_SIZE);
 
   return (

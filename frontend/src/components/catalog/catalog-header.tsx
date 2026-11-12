@@ -26,7 +26,8 @@ export function CatalogHeader({ category, total }: { category?: Category; total:
         {category ? category.name : 'Catálogo'}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        {description} · {total} {total === 1 ? 'herramienta' : 'herramientas'}
+        {description && `${description} · `}
+        {total} {total === 1 ? 'herramienta' : 'herramientas'}
       </p>
     </header>
   );

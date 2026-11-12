@@ -1,9 +1,12 @@
+import { apiFetch, isApiEnabled } from '@/lib/api';
+
 // Forma de GET /api/v1/categories (Contrato de API v1, OB-21).
 export type Category = {
   id: string;
   slug: string;
   name: string;
-  description: string;
+  // null si la categoría no tiene descripción (GET /api/v1/categories).
+  description: string | null;
   repositoryCount: number;
 };
 
@@ -52,6 +55,11 @@ const mockCategories: Category[] = [
   },
 ];
 
+// GET /api/v1/categories. Sin NEXT_PUBLIC_API_URL devuelve datos de prueba.
 export async function getCategories(): Promise<Category[]> {
-  return mockCategories;
+  if (!isApiEnabled) return mockCategories;
+  const { data } = await apiFetch<{ data: Category[] }>('/categories', {
+    next: { revalidate: 300 },
+  });
+  return data;
 }
