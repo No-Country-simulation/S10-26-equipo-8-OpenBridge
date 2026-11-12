@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/wait-for-api.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0 && prettier --check . --ignore-path ../.prettierignore"
