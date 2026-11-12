@@ -68,6 +68,27 @@ describe('búsqueda por significado', () => {
       });
     }
 
+    const authJs = await upsertRepository(
+      t.db,
+      {
+        githubId: 6,
+        fullName: 'nextauthjs/next-auth',
+        name: 'next-auth',
+        url: 'https://github.com/nextauthjs/next-auth',
+        description: 'Authentication for Next.js',
+        healthScore: 85,
+      },
+      [auth.id],
+    );
+    ids.authJs = authJs.id;
+    await upsertEmbedding(t.db, {
+      entityType: 'REPOSITORY',
+      entityId: authJs.id,
+      content: 'Auth.js authentication for Next.js',
+      vector: vectorWithSimilarity(0.88, 8),
+      model: 'bge-m3',
+    });
+
     const [idea] = await t.db
       .insert(integrationIdea)
       .values({
@@ -216,7 +237,7 @@ describe('búsqueda por significado', () => {
       const results = (await searchCatalog(t.db, { query: 'sso', limit: 20 }, { embedQuery }))!;
 
       expect(titles(results)).not.toContain('Idea en borrador');
-      expect(results).toHaveLength(7);
+      expect(results).toHaveLength(8);
     });
 
     it('filtra las ideas por la salud de su repositorio', async () => {
@@ -241,6 +262,34 @@ describe('búsqueda por significado', () => {
   });
 
   describe('POST /api/v1/search', () => {
+    it('combina texto y significado para encontrar Keycloak y Auth.js por intención', async () => {
+      const socialLoginEmbedQuery = vi.fn(async () => QUERY_VECTOR);
+      const hybridApp = createApp({ db: t.db, embedQuery: socialLoginEmbedQuery });
+      const res = await request(hybridApp).post('/api/v1/search/hybrid').send({
+        query: 'inicio de sesión con redes sociales',
+        category: 'auth',
+        size: 5,
+      });
+
+      expect(res.status).toBe(200);
+      expect(socialLoginEmbedQuery).toHaveBeenCalledWith(
+        'inicio de sesión con redes sociales\n' +
+          'Autenticación con proveedores de identidad sociales, social login, OAuth 2.0, ' +
+          'OpenID Connect, Keycloak, Auth.js y NextAuth.js',
+      );
+      expect(res.body.data.map((repo: { fullName: string }) => repo.fullName)).toContain(
+        'acme/keycloak',
+      );
+      expect(res.body.data.map((repo: { fullName: string }) => repo.fullName)).toContain(
+        'nextauthjs/next-auth',
+      );
+      expect(
+        res.body.data.every((repo: { categories: { slug: string }[] }) =>
+          repo.categories.some(({ slug }) => slug === 'auth'),
+        ),
+      ).toBe(true);
+    });
+
     it('responde los resultados con los valores por defecto', async () => {
       const res = await request(app).post('/api/v1/search').send({ query: 'sso' });
 
@@ -261,7 +310,7 @@ describe('búsqueda por significado', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(titles(res.body.data)).toEqual(['acme/keycloak', 'acme/lejano']);
+      expect(titles(res.body.data)).toEqual(['acme/keycloak', 'nextauthjs/next-auth']);
     });
 
     it.each<{ reason: string; body: object }>([

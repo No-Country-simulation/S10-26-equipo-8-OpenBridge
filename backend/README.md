@@ -95,6 +95,20 @@ GitHub (por ejemplo, después de aprobar ideas). `db:sync` la corre al final.
   la consola y la corrida sigue con el lote siguiente; el comando termina con
   error para que Actions lo marque.
 
+## Búsqueda híbrida (OB-31)
+
+`POST /api/v1/search/hybrid` combina relevancia textual y similitud semántica
+con reciprocal rank fusion. Las consultas sobre inicio de sesión social se
+expanden con vocabulario de autenticación federada. La búsqueda requiere
+Ollama con `bge-m3` y embeddings del catálogo; los errores del servicio se
+devuelven al cliente, sin fallback a datos simulados.
+
+Para probar el mismo ranking desde la CLI:
+
+```powershell
+npm run db:search -w backend -- "inicio de sesión con redes sociales" --hybrid --category auth
+```
+
 ## OB-42 · Logs estructurados y verificación de estado
 
 Cada petición genera un log JSON con `requestId`, `method`, `path`,

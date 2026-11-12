@@ -2,8 +2,13 @@ import express, { Router } from 'express';
 import { z } from 'zod';
 import { apiError } from '../catalog/schema.js';
 import type { Db } from '../db/client.js';
-import { searchRequestSchema } from './schema.js';
-import { EmbeddingsUnavailableError, searchCatalog, type EmbedQuery } from './service.js';
+import { hybridSearchRequestSchema, searchRequestSchema } from './schema.js';
+import {
+  EmbeddingsUnavailableError,
+  searchCatalog,
+  searchHybridCatalog,
+  type EmbedQuery,
+} from './service.js';
 
 export function searchRouter(db: Db, embedQuery: EmbedQuery): Router {
   const router = Router();
@@ -29,6 +34,36 @@ export function searchRouter(db: Db, embedQuery: EmbedQuery): Router {
         return;
       }
       res.json({ data: results });
+    } catch (error) {
+      if (!(error instanceof EmbeddingsUnavailableError)) throw error;
+      console.error(error);
+      res
+        .status(503)
+        .json(
+          apiError(
+            'EMBEDDINGS_UNAVAILABLE',
+            'El servicio de búsqueda por significado no está disponible',
+          ),
+        );
+    }
+  });
+
+  router.post('/search/hybrid', express.json({ limit: '10kb' }), async (req, res) => {
+    const body = hybridSearchRequestSchema.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json(apiError('INVALID_QUERY', z.prettifyError(body.error)));
+      return;
+    }
+
+    try {
+      const results = await searchHybridCatalog(db, body.data, { embedQuery });
+      if (!results) {
+        res
+          .status(404)
+          .json(apiError('CATEGORY_NOT_FOUND', `No existe la categoría "${body.data.category}"`));
+        return;
+      }
+      res.json(results);
     } catch (error) {
       if (!(error instanceof EmbeddingsUnavailableError)) throw error;
       console.error(error);

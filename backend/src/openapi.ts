@@ -12,6 +12,7 @@ import {
 } from './catalog/schema.js';
 import {
   DEFAULT_SEARCH_LIMIT,
+  hybridSearchRequestSchema,
   MAX_SEARCH_LIMIT,
   searchRequestSchema,
   searchResponseSchema,
@@ -143,11 +144,31 @@ export const openApiDocument = {
           ),
         },
       },
+      '/api/v1/search/hybrid': {
+        post: {
+          summary: 'Buscar por texto y significado',
+          description:
+            'Combina la relevancia de texto completo con la similitud vectorial mediante reciprocal rank fusion. ' +
+            'Devuelve repositorios paginados y requiere embeddings disponibles.',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: ref('HybridSearchRequest') } },
+          },
+          responses: {
+            '200': json('RepositoryPage', 'Repositorios ordenados por relevancia híbrida.'),
+            '400': json('ApiError', 'Cuerpo inválido (código INVALID_QUERY).'),
+            '404': json('ApiError', 'La categoría no existe (código CATEGORY_NOT_FOUND).'),
+            '413': json('ApiError', 'El cuerpo supera los 10 KB (código INVALID_QUERY).'),
+            '503': json('ApiError', 'Ollama no responde (código EMBEDDINGS_UNAVAILABLE).'),
+          },
+        },
+      },
     },
   },
   components: {
     schemas: {
       SearchRequest: jsonSchema(searchRequestSchema, 'input'),
+      HybridSearchRequest: jsonSchema(hybridSearchRequestSchema, 'input'),
       SearchResponse: jsonSchema(searchResponseSchema),
       RepositoryPage: jsonSchema(repositoryPageSchema),
       CatalogFilters: jsonSchema(catalogFiltersSchema),

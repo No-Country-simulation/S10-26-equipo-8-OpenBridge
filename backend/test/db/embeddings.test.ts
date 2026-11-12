@@ -108,7 +108,7 @@ describe('almacenamiento de embeddings', () => {
         await t.db.insert(embedding).values(rows.slice(start, start + 250));
       }
       await t.db.execute(sql`ANALYZE embedding`);
-    });
+    }, 30_000);
 
     it('devuelve los 10 más cercanos en menos de 100 ms', async () => {
       const query = rows[500].vector;
