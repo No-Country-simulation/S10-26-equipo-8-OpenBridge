@@ -168,12 +168,3 @@ export function TopicsPanel({ topics }: { topics: string[] }) {
     </Panel>
   );
 }
-
-export function SyncNote({ lastSyncedAt }: { lastSyncedAt: string }) {
-  return (
-    <p className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span aria-hidden="true" className="size-2 rounded-full bg-health-active" />
-      Datos sincronizados {formatLastCommit(lastSyncedAt)}
-    </p>
-  );
-}
