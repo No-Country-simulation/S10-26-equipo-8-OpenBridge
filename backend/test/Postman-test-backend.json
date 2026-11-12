@@ -40,15 +40,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/repositories/{{repo_id}}",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "repositories",
-                    "{{repo_id}}"
-                  ]
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "repositories", "{{repo_id}}"]
                 }
               },
               "response": []
@@ -71,15 +64,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/repositories/22222222-2222-4222-8222-222222222222",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "repositories",
-                    "22222222-2222-4222-8222-222222222222"
-                  ]
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "repositories", "22222222-2222-4222-8222-222222222222"]
                 }
               },
               "response": []
@@ -102,15 +88,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{baseUrl}}/api/v1/repositories/id_invalido_123",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "api",
-                    "v1",
-                    "repositories",
-                    "id_invalido_123"
-                  ]
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "repositories", "id_invalido_123"]
                 }
               },
               "response": []
@@ -135,14 +114,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=1&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -189,14 +162,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?page=1&size=10",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "page",
@@ -251,14 +218,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?page=2&size=10",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "page",
@@ -293,14 +254,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=0&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -337,14 +292,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?size=500",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "size",
@@ -373,14 +322,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=categora_inexistente&page=1&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -417,14 +360,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=primera&size=veinte",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -461,14 +398,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=auth' OR '1'='1&page=1&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -505,14 +436,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=1&size=20",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "category",
@@ -554,14 +479,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"]
             }
           },
           "response": []
@@ -584,14 +503,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?q=keycloak",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "q",
@@ -620,14 +533,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?q=a",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "q",
@@ -656,14 +563,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?language=TypeScript&license=MIT",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "language",
@@ -696,14 +597,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?maintenance=ACTIVE,MODERATE",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "maintenance",
@@ -732,14 +627,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?q=postgres&sort=relevance",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "q",
@@ -772,14 +661,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/repositories?minStars=-1",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "repositories"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "repositories"],
               "query": [
                 {
                   "key": "minStars",
@@ -813,14 +696,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/categories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "categories"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"]
             }
           },
           "response": []
@@ -843,14 +720,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/categories",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "categories"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"]
             }
           },
           "response": []
@@ -873,14 +744,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/filters",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "filters"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "filters"]
             }
           },
           "response": []
@@ -922,14 +787,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "search"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search"]
             }
           },
           "response": []
@@ -966,14 +825,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "search"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search"]
             }
           },
           "response": []
@@ -1010,14 +863,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/search",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "search"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "search"]
             }
           },
           "response": []
@@ -1045,12 +892,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "health"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
             }
           },
           "response": []
@@ -1078,12 +921,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "health"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
             }
           },
           "response": []
@@ -1125,15 +964,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/assistant/capabilities",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "assistant",
-                "capabilities"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "assistant", "capabilities"]
             }
           },
           "response": []
@@ -1179,15 +1011,8 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/assistant/capabilities",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "v1",
-                "assistant",
-                "capabilities"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "assistant", "capabilities"]
             }
           },
           "response": []
@@ -1202,9 +1027,7 @@
         "type": "text/javascript",
         "packages": {},
         "requests": {},
-        "exec": [
-          ""
-        ]
+        "exec": [""]
       }
     },
     {
@@ -1213,9 +1036,7 @@
         "type": "text/javascript",
         "packages": {},
         "requests": {},
-        "exec": [
-          ""
-        ]
+        "exec": [""]
       }
     }
   ],
