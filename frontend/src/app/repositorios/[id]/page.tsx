@@ -6,7 +6,6 @@ import {
   HealthPanel,
   LicensePanel,
   MetricsPanel,
-  SyncNote,
   TopicsPanel,
 } from '@/components/repository/repository-panels';
 import { RiskBanners } from '@/components/repository/risk-banners';
@@ -46,7 +45,6 @@ export default async function RepositoryPage({ params }: PageProps<'/repositorio
             <MetricsPanel repository={repository} />
             <LicensePanel licenseSpdx={repository.licenseSpdx} />
             <TopicsPanel topics={repository.topics} />
-            <SyncNote lastSyncedAt={repository.lastSyncedAt} />
           </aside>
         </div>
       </div>
