@@ -1,3 +1,4 @@
+import { API_URL } from '@/lib/api';
 import { mockProposal } from '@/lib/assistant-mock';
 import type { IntegrationType } from '@/lib/repositories';
 
@@ -147,12 +148,39 @@ async function* apiStream(
     return;
   }
 
+  let finished = false;
   for await (const { event, data } of readSse(res.body)) {
     const payload = JSON.parse(data);
-    if (event === 'progress') yield { type: 'progress', stage: payload.stage };
-    else if (event === 'result') yield { type: 'result', proposal: payload.data ?? payload };
-    else if (event === 'error') yield { type: 'error', error: payload.error ?? payload };
+    if (event === 'progress') {
+      yield { type: 'progress', stage: payload.stage };
+    } else if (event === 'result') {
+      const proposal = payload.data ?? payload;
+      finished = true;
+      yield isProposal(proposal)
+        ? { type: 'result', proposal }
+        : internalError('El asistente devolvió una propuesta incompleta.');
+      return;
+    } else if (event === 'error') {
+      finished = true;
+      yield { type: 'error', error: { details: [], ...(payload.error ?? payload) } };
+      return;
+    }
   }
+  // La conexión se cerró sin resultado ni error (corte de red o del proxy): sin esto la pantalla
+  // quedaría cargando para siempre.
+  if (!finished) yield internalError('Se cortó la conexión con el asistente. Probá de nuevo.');
+}
+
+function isProposal(value: unknown): value is Proposal {
+  const v = value as Partial<Proposal> | null;
+  return (
+    !!v &&
+    typeof v.id === 'string' &&
+    Array.isArray(v.capabilities) &&
+    Array.isArray(v.components) &&
+    Array.isArray(v.connections) &&
+    Array.isArray(v.gaps)
+  );
 }
 
 // Pide una propuesta y entrega los eventos a medida que llegan. Sin NEXT_PUBLIC_API_URL usa un
@@ -168,9 +196,8 @@ export async function* streamProposal(
   signal?.addEventListener('abort', () => controller.abort(signal.reason));
 
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-    yield* baseUrl
-      ? apiStream(baseUrl, description, constraints, controller.signal)
+    yield* API_URL
+      ? apiStream(API_URL, description, constraints, controller.signal)
       : mockStream(controller.signal);
   } catch (error) {
     if (controller.signal.reason === timeout) {
