@@ -63,7 +63,7 @@ npm run db:embed
 
 ## 3b. Interfaz en Vercel
 
-En Vercel, `NEXT_PUBLIC_API_URL` apunta a la API **con el prefijo** `/api/v1`: `https://openbridge-api.onrender.com/api/v1`. Sin esa variable, la interfaz usa datos simulados y nunca llama a Render. El origen de la interfaz tiene que estar en `CORS_ORIGINS`.
+En Vercel, `NEXT_PUBLIC_API_URL` apunta a la API **con el prefijo** `/api/v1`: `https://openbridge-api-utri.onrender.com/api/v1`. Sin esa variable, la interfaz usa datos simulados y nunca llama a Render. El origen de la interfaz tiene que estar en `CORS_ORIGINS`.
 
 Después, la ingesta diaria (`.github/workflows/daily-sync.yml`) mantiene el catálogo al día con los secretos de GitHub Actions.
 
@@ -105,22 +105,18 @@ En la máquina con GPU:
    El túnel rápido cambia de dirección cada vez que se reinicia y no tiene garantía de servicio. Para una dirección fija, usá un túnel con nombre. La dirección va en `OLLAMA_BASE_URL`.
 4. Probá el proxy antes de cargar la dirección en Render:
    ```bash
-   curl -s -o /dev/null -w "%{http_code}
+   curl -s -o /dev/null -w '%{http_code}\n' https://<tunel>/api/version   # 401
+   curl -s -H "Authorization: Bearer $OLLAMA_API_KEY" https://<tunel>/api/version   # {"version":…}
+   curl -s -H "Authorization: Bearer $OLLAMA_API_KEY" https://<tunel>/api/embed -d '{"model":"bge-m3","input":"hola"}' | head -c 80
    ```
-
-" https://<tunel>/api/version # 401
-curl -s -H "Authorization: Bearer $OLLAMA_API_KEY" https://<tunel>/api/version # {"version":…}
-curl -s -H "Authorization: Bearer $OLLAMA_API_KEY" https://<tunel>/api/embed -d '{"model":"bge-m3","input":"hola"}' | head -c 80
-
-````
 
 Si la máquina está apagada, el catálogo sigue andando. `/search` responde `503 EMBEDDINGS_UNAVAILABLE` y el asistente `503 UPSTREAM_UNAVAILABLE`.
 
 ## 5. Verificar
 
 ```bash
-API=https://openbridge-api.onrender.com
+API=https://openbridge-api-utri.onrender.com
 curl $API/health                                                  # {"status":"ok"}
 curl "$API/api/v1/repositories?category=auth&size=1"              # datos de Neon
 curl -i -H "Origin: https://evil.example" $API/api/v1/filters     # 403 ORIGIN_NOT_ALLOWED
-````
+```
