@@ -1,7 +1,7 @@
 // Cliente HTTP de la API (contrato v1). Es el único lugar que conoce la URL del servidor.
 //
 // NEXT_PUBLIC_API_URL apunta a la API con el prefijo, por ejemplo
-// https://openbridge-api.onrender.com/api/v1 (ver docs/deploy.md). Sin esa variable la interfaz
+// https://openbridge-api-utri.onrender.com/api/v1 (ver docs/deploy.md). Sin esa variable la interfaz
 // sigue con datos simulados y nunca llama al servidor.
 
 const API_PREFIX = '/api/v1';
