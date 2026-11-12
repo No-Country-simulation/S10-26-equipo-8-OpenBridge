@@ -1,0 +1,1228 @@
+{
+  "info": {
+    "_postman_id": "64fcd97c-b316-49e3-a3a9-309743ed0541",
+    "name": "OpenBridge",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "60014598",
+    "_collection_link": "https://go.postman.co/collection/60014598-64fcd97c-b316-49e3-a3a9-309743ed0541?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01 - Repositories (Contrato y paginacion))",
+      "item": [
+        {
+          "name": "Detalle de Repositorio",
+          "item": [
+            {
+              "name": "REP-DET-01: Consulta exitosa de ficha tecnica",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Si no tenemos repo_id definido, lo obtenemos automáticamente del catálogo\r\nif (!pm.collectionVariables.get(\"repo_id\") && !pm.variables.get(\"repo_id\")) {\r\n    pm.sendRequest({\r\n        url: pm.variables.get(\"baseUrl\") + \"/api/v1/repositories?size=1\",\r\n        method: \"GET\"\r\n    }, function (err, res) {\r\n        if (!err && res.code === 200) {\r\n            const data = res.json().data;\r\n            if (data && data.length > 0) {\r\n                pm.variables.set(\"repo_id\", data[0].id);\r\n            }\r\n        }\r\n    });\r\n}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Respuesta contiene la ficha técnica completa en data\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\");\r\n    const repo = json.data;\r\n    \r\n    // Identificadores y métricas base\r\n    pm.expect(repo).to.have.property(\"id\");\r\n    pm.expect(repo).to.have.property(\"fullName\");\r\n    pm.expect(repo).to.have.property(\"stars\");\r\n    pm.expect(repo).to.have.property(\"forks\");\r\n    pm.expect(repo).to.have.property(\"openIssues\");\r\n    \r\n    // Metadatos técnicos\r\n    pm.expect(repo).to.have.property(\"url\");\r\n    pm.expect(repo).to.have.property(\"topics\").that.is.an(\"array\");\r\n    pm.expect(repo).to.have.property(\"categories\").that.is.an(\"array\");\r\n    pm.expect(repo).to.have.property(\"lastSyncedAt\");\r\n});\r\n\r\npm.test(\"integrationIdeas es un arreglo válido\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.data.integrationIdeas).to.be.an(\"array\");\r\n    \r\n    // Si contiene ideas, verificar estructura de la primera\r\n    if (json.data.integrationIdeas.length > 0) {\r\n        const idea = json.data.integrationIdeas[0];\r\n        pm.expect(idea).to.have.property(\"id\");\r\n        pm.expect(idea).to.have.property(\"title\");\r\n        pm.expect(idea).to.have.property(\"integrationType\");\r\n        pm.expect(idea).to.have.property(\"difficulty\");\r\n    }\r\n});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/repositories/{{repo_id}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "repositories",
+                    "{{repo_id}}"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "REP-DET-02: UUID inexistente",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code es 404 Not Found\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\npm.test(\"Estructura de error con código NOT_FOUND\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"error\");\r\n    pm.expect(json.error.code).to.eql(\"NOT_FOUND\");\r\n    pm.expect(json.error.message).to.eql(\"No existe el repositorio\");\r\n});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/repositories/22222222-2222-4222-8222-222222222222",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "repositories",
+                    "22222222-2222-4222-8222-222222222222"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "REP-DET-03",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"Status code es 404 Not Found (no debe dar 500)\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\npm.test(\"Capturado con código NOT_FOUND\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"error\");\r\n    pm.expect(json.error.code).to.eql(\"NOT_FOUND\");\r\n});"
+                    ]
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/repositories/id_invalido_123",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "repositories",
+                    "id_invalido_123"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "API-REPO-01: Consulta exitosa por categoria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Estructura raíz contiene 'data' y 'meta'\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\");\r\n    pm.expect(json).to.have.property(\"meta\");\r\n    pm.expect(json.data).to.be.an(\"array\");\r\n});\r\n\r\npm.test(\"Metadatos corresponden a page=1 y size=20\", function () {\r\n    const meta = pm.response.json().meta;\r\n    pm.expect(meta.page).to.eql(1);\r\n    pm.expect(meta.size).to.eql(20);\r\n    pm.expect(meta.total).to.be.a(\"number\");\r\n    pm.expect(meta.totalPages).to.be.a(\"number\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=1&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "auth"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-02 : paginacion Pagina 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Guarda IDs de la Pagina 1 para comparar\", function () {\r",
+                  "    const json = pm.response.json();\r",
+                  "    const ids = json.data.map(r => r.id);\r",
+                  "    pm.collectionVariables.set(\"page1_ids\", JSON.stringify(ids));\r",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?page=1&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-02 : paginacion Pagina 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r",
+                  "    pm.response.to.have.status(200);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Metadatos reflejan page=2\", function () {\r",
+                  "    pm.expect(pm.response.json().meta.page).to.eql(2);\r",
+                  "});\r",
+                  "\r",
+                  "pm.test(\"Ningun ID de la Pagina 1 se repite en la Pagina 2\", function () {\r",
+                  "    const rawPage1 = pm.collectionVariables.get(\"page1_ids\");\r",
+                  "    if (rawPage1) {\r",
+                  "        const page1Ids = JSON.parse(rawPage1);\r",
+                  "        const page2Ids = pm.response.json().data.map(r => r.id);\r",
+                  "        const duplicates = page2Ids.filter(id => page1Ids.includes(id));\r",
+                  "        pm.expect(duplicates, \"IDs duplicados: \" + duplicates.join(\", \")).to.be.empty;\r",
+                  "    }\r",
+                  "});\r",
+                  "\r",
+                  "pm.collectionVariables.unset(\"page1_ids\");"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?page=2&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "size",
+                  "value": "10",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-04: Rechazo de page=0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Error code es INVALID_QUERY y menciona 'page'\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"INVALID_QUERY\");\r\n    pm.expect(json.error.message.toLowerCase()).to.include(\"page\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "auth"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-05: Clamping de size=500",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"meta.size se limita automaticamente a 100\", function () {\r\n    const meta = pm.response.json().meta;\r\n    pm.expect(meta.size).to.eql(100);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?size=500",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "size",
+                  "value": "500"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-06: Categoria inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 404 Not Found\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\npm.test(\"Error code es CATEGORY_NOT_FOUND\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"CATEGORY_NOT_FOUND\");\r\n    pm.expect(json.error.message).to.include(\"No existe la categoría\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=categora_inexistente&page=1&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "categora_inexistente"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-07: Datos alfanumericos en numeros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Error code es INVALID_QUERY\", function () {\r\n    pm.expect(pm.response.json().error.code).to.eql(\"INVALID_QUERY\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=primera&size=veinte",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "auth"
+                },
+                {
+                  "key": "page",
+                  "value": "primera"
+                },
+                {
+                  "key": "size",
+                  "value": "veinte"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-08: Inyeccion SQL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 404 o 400 (seguro) y NUNCA 500\", function () {\r\n    pm.expect(pm.response.code).to.be.oneOf([400, 404]);\r\n    pm.expect(pm.response.code).to.not.eql(500);\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=auth' OR '1'='1&page=1&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "auth' OR '1'='1"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-REPO-09: Integridad de los campos segun contrato",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"La respuesta contiene un array 'data' con al menos un repositorio\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\");\r\n    pm.expect(json.data).to.be.an(\"array\");\r\n    pm.expect(json.data.length, \"Se requiere al menos 1 repositorio para validar el esquema\").to.be.above(0);\r\n});\r\n\r\npm.test(\"Cada repositorio cumple estrictamente con el contrato y tipos de datos\", function () {\r\n    const data = pm.response.json().data;\r\n    const maintenanceLevels = [\"ACTIVE\", \"MODERATE\", \"AT_RISK\", \"ARCHIVED\", null];\r\n    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\r\n\r\n    data.forEach((repo, index) => {\r\n        // 1. Campos de texto obligatorios\r\n        pm.expect(repo.id, `repo[${index}].id debe ser un UUID válido`).to.match(uuidRegex);\r\n        pm.expect(repo.fullName, `repo[${index}].fullName debe ser string no vacío`).to.be.a(\"string\").and.not.empty;\r\n        pm.expect(repo.name, `repo[${index}].name debe ser string no vacío`).to.be.a(\"string\").and.not.empty;\r\n\r\n        // 2. Campos opcionales (string o null)\r\n        pm.expect(repo.description === null || typeof repo.description === \"string\", `repo[${index}].description debe ser string o null`).to.be.true;\r\n        pm.expect(repo.primaryLanguage === null || typeof repo.primaryLanguage === \"string\", `repo[${index}].primaryLanguage debe ser string o null`).to.be.true;\r\n        pm.expect(repo.licenseSpdx === null || typeof repo.licenseSpdx === \"string\", `repo[${index}].licenseSpdx debe ser string o null`).to.be.true;\r\n\r\n        // 3. Estrellas (entero >= 0)\r\n        pm.expect(repo.stars, `repo[${index}].stars debe ser un número entero`).to.be.a(\"number\");\r\n        pm.expect(repo.stars, `repo[${index}].stars debe ser >= 0`).to.be.at.least(0);\r\n\r\n        // 4. Métricas de salud y mantenimiento\r\n        if (repo.healthScore !== null) {\r\n            pm.expect(repo.healthScore, `repo[${index}].healthScore debe estar entre 0 y 100`).to.be.within(0, 100);\r\n        }\r\n        pm.expect(maintenanceLevels, `repo[${index}].maintenanceLevel tiene valor inválido`).to.include(repo.maintenanceLevel);\r\n\r\n        // 5. Categorías (array de objetos con slug y name)\r\n        pm.expect(repo.categories, `repo[${index}].categories debe ser un array`).to.be.an(\"array\");\r\n        repo.categories.forEach((cat) => {\r\n            pm.expect(cat).to.have.property(\"slug\").that.is.a(\"string\");\r\n            pm.expect(cat).to.have.property(\"name\").that.is.a(\"string\");\r\n        });\r\n\r\n        // 6. Fecha de último commit (formato ISO 8601 o null)\r\n        if (repo.lastCommitAt !== null) {\r\n            pm.expect(repo.lastCommitAt).to.be.a(\"string\");\r\n            pm.expect(isNaN(Date.parse(repo.lastCommitAt)), `repo[${index}].lastCommitAt debe ser fecha ISO válida`).to.be.false;\r\n        }\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?category=auth&page=1&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "auth"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Repositories (Busqueda y filtros)",
+      "item": [
+        {
+          "name": "REP-001: Consulta sin parametros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Estructura contiene 'data' y 'meta'\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\");\r\n    pm.expect(json).to.have.property(\"meta\");\r\n});\r\n\r\npm.test(\"Aplica paginación por defecto: page=1 y size=20\", function () {\r\n    const meta = pm.response.json().meta;\r\n    pm.expect(meta.page).to.eql(1);\r\n    pm.expect(meta.size).to.eql(20);\r\n    pm.expect(meta.total).to.be.a(\"number\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-004: Busqueda por texto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"La búsqueda devuelve array de datos y metadatos\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.data).to.be.an(\"array\");\r\n    pm.expect(json.meta).to.have.property(\"total\");\r\n});\r\n\r\npm.test(\"Si hay resultados, coinciden con 'keycloak'\", function () {\r\n    const data = pm.response.json().data;\r\n    if (data.length > 0) {\r\n        const first = data[0];\r\n        const match = (\r\n            first.fullName.toLowerCase().includes(\"keycloak\") ||\r\n            (first.description && first.description.toLowerCase().includes(\"keycloak\"))\r\n        );\r\n        pm.expect(match, \"El primer resultado coincide con 'keycloak'\").to.be.true;\r\n    }\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?q=keycloak",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "keycloak"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-005: Rechazo de busqueda corta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Error code es INVALID_QUERY\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"INVALID_QUERY\");\r\n});\r\n\r\npm.test(\"Mensaje de error detalla el fallo en el parametro 'q'\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.message.toLowerCase()).to.include(\"q\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?q=a",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "a"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-006: Filtro combinando lenguaje y licencia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Todos los resultados devueltos cumplen ambos filtros\", function () {\r\n    const data = pm.response.json().data;\r\n    data.forEach((repo, i) => {\r\n        if (repo.primaryLanguage) {\r\n            pm.expect(repo.primaryLanguage.toLowerCase(), `repo[${i}].primaryLanguage`).to.eql(\"typescript\");\r\n        }\r\n        if (repo.licenseSpdx) {\r\n            pm.expect(repo.licenseSpdx.toLowerCase(), `repo[${i}].licenseSpdx`).to.eql(\"mit\");\r\n        }\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?language=TypeScript&license=MIT",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "language",
+                  "value": "TypeScript"
+                },
+                {
+                  "key": "license",
+                  "value": "MIT"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-007: Repositorio por maintenance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Estructura de respuesta contiene data y meta de paginación\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\").that.is.an(\"array\");\r\n    pm.expect(json).to.have.property(\"meta\");\r\n    pm.expect(json.meta).to.have.property(\"total\");\r\n});\r\n\r\npm.test(\"Todos los repositorios retornados tienen nivel ACTIVE o MODERATE\", function () {\r\n    const json = pm.response.json();\r\n    const nivelesPermitidos = [\"ACTIVE\", \"MODERATE\"];\r\n    \r\n    json.data.forEach(function (repo) {\r\n        pm.expect(nivelesPermitidos).to.include(\r\n            repo.maintenanceLevel,\r\n            `El repositorio ${repo.fullName} tiene un nivel no esperado: ${repo.maintenanceLevel}`\r\n        );\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?maintenance=ACTIVE,MODERATE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "maintenance",
+                  "value": "ACTIVE,MODERATE"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-009: Ordenamiento por relevancia valido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Responde con listado ordenado por relevancia\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.data).to.be.an(\"array\");\r\n    pm.expect(json.meta).to.have.property(\"page\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?q=postgres&sort=relevance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "postgres"
+                },
+                {
+                  "key": "sort",
+                  "value": "relevance"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "REP-008: Repositorio con minStars negativa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Error code es INVALID_QUERY para valor negativo de estrellas\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"error\");\r\n    pm.expect(json.error.code).to.eql(\"INVALID_QUERY\");\r\n    // El validador Zod rechaza números negativos y lo reporta en minStars\r\n    pm.expect(json.error.message).to.include(\"minStars\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/repositories?minStars=-1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "repositories"
+              ],
+              "query": [
+                {
+                  "key": "minStars",
+                  "value": "-1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Filtros y categorias",
+      "item": [
+        {
+          "name": "CAT-001: Categoria sin parametros",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Devuelve array 'data' con categorías\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"data\");\r\n    pm.expect(json.data).to.be.an(\"array\");\r\n    pm.expect(json.data.length).to.be.above(0);\r\n});\r\n\r\npm.test(\"Cada categoría contiene id, slug, name, description y repositoryCount\", function () {\r\n    const categories = pm.response.json().data;\r\n    categories.forEach((cat, index) => {\r\n        pm.expect(cat, `cat[${index}]`).to.have.property(\"id\");\r\n        pm.expect(cat, `cat[${index}]`).to.have.property(\"slug\");\r\n        pm.expect(cat, `cat[${index}]`).to.have.property(\"name\");\r\n        pm.expect(cat, `cat[${index}]`).to.have.property(\"description\");\r\n        pm.expect(cat, `cat[${index}]`).to.have.property(\"repositoryCount\");\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CAT-002: Conteo de Repositorio de una categoria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"repositoryCount es un número entero no negativo\", function () {\r\n    const categories = pm.response.json().data;\r\n    categories.forEach((cat, index) => {\r\n        pm.expect(cat.repositoryCount, `cat[${index}].repositoryCount debe ser numérico`).to.be.a(\"number\");\r\n        pm.expect(cat.repositoryCount, `cat[${index}].repositoryCount debe ser >= 0`).to.be.at.least(0);\r\n    });\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "CAT-003: Opciones de filtros reales",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Respuesta contiene todas las secciones de filtros requeridas\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"categories\");\r\n    pm.expect(json).to.have.property(\"languages\");\r\n    pm.expect(json).to.have.property(\"licenses\");\r\n    pm.expect(json).to.have.property(\"maintenanceLevels\");\r\n    pm.expect(json).to.have.property(\"stars\");\r\n});\r\n\r\npm.test(\"Las categorías de filtros tienen value (slug), label (nombre) y count\", function () {\r\n    const categories = pm.response.json().categories;\r\n    pm.expect(categories).to.be.an(\"array\");\r\n    if (categories.length > 0) {\r\n        const first = categories[0];\r\n        pm.expect(first).to.have.property(\"value\");\r\n        pm.expect(first).to.have.property(\"label\");\r\n        pm.expect(first).to.have.property(\"count\").that.is.a(\"number\");\r\n    }\r\n});\r\n\r\npm.test(\"El objeto stars contiene min y max numéricos\", function () {\r\n    const stars = pm.response.json().stars;\r\n    pm.expect(stars.min).to.be.a(\"number\");\r\n    pm.expect(stars.max).to.be.a(\"number\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/filters",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "filters"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Busqueda semantica",
+      "item": [
+        {
+          "name": "API-SRCH-02: Categoría inexistente en búsqueda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 404 Not Found\", function () {\r\n    pm.response.to.have.status(404);\r\n});\r\n\r\npm.test(\"Estructura de error CATEGORY_NOT_FOUND\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json).to.have.property(\"error\");\r\n    pm.expect(json.error.code).to.eql(\"CATEGORY_NOT_FOUND\");\r\n    pm.expect(json.error.message).to.include(\"No existe alguna de las categorías\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"autenticación de usuarios\",\r\n  \"categories\": [\"categoria_fantasma_inexistente\"]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-SRCH-02: Validación de query vacía",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Código de error es INVALID_QUERY por longitud mínima\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"INVALID_QUERY\");\r\n    pm.expect(json.error.message).to.include(\"at query\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-SRCH-03: Validación de límite fuera de rango",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Código de error es INVALID_QUERY para limit menor a 1\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"INVALID_QUERY\");\r\n    pm.expect(json.error.message).to.include(\"at limit\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"query\": \"auth\",\r\n  \"limit\": 0\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Monitoreo y operaciones",
+      "item": [
+        {
+          "name": "API-OPS-01: Verificación de Salud y Trazabilidad DB",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\n\r\npm.test(\"Respuesta indica status ok\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.status).to.eql(\"ok\");\r\n});\r\n\r\npm.test(\"Cabecera X-Request-Id presente con formato UUID\", function () {\r\n    pm.response.to.have.header(\"X-Request-Id\");\r\n    const reqId = pm.response.headers.get(\"X-Request-Id\");\r\n    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\r\n    pm.expect(uuidRegex.test(reqId)).to.be.true;\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-OPS-02: Verificación de cabeceras CORS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 200 OK\", function () {\r\n    pm.response.to.have.status(200);\r\n});\r\npm.test(\"Cabecera Access-Control-Allow-Origin presente para el frontend\", function () {\r\n    pm.response.to.have.header(\"Access-Control-Allow-Origin\");\r\n    const origin = pm.response.headers.get(\"Access-Control-Allow-Origin\");\r\n    pm.expect(origin).to.eql(\"http://localhost:3000\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 - Asistente RAG",
+      "item": [
+        {
+          "name": "API-ASST-01: Descripción de negocio demasiado corta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 400 Bad Request\", function () {\r\n    pm.response.to.have.status(400);\r\n});\r\n\r\npm.test(\"Error es VALIDATION_ERROR indicando description corta\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"VALIDATION_ERROR\");\r\n    pm.expect(json.error.message).to.eql(\"La solicitud no es válida\");\r\n    pm.expect(json.error.details).to.be.an(\"array\").that.is.not.empty;\r\n    pm.expect(json.error.details[0].field).to.eql(\"description\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"description\": \"App corta\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/assistant/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "capabilities"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-ASST-02: Control de Payload Too Large (> 32 KB)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const largeText = \"a\".repeat(35000); // 35 KB, supera el límite de 32 KB\r\npm.variables.set(\"huge_payload\", JSON.stringify({ description: largeText }));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code es 413 Payload Too Large\", function () {\r\n    pm.response.to.have.status(413);\r\n});\r\n\r\npm.test(\"Estructura de error PAYLOAD_TOO_LARGE estándar\", function () {\r\n    const json = pm.response.json();\r\n    pm.expect(json.error.code).to.eql(\"PAYLOAD_TOO_LARGE\");\r\n    pm.expect(json.error.message).to.eql(\"La solicitud supera el tamaño permitido\");\r\n});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{huge_payload}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/assistant/capabilities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "capabilities"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    }
+  ]
+}
