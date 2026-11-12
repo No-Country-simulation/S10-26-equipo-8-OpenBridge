@@ -6,6 +6,8 @@ import { createApp } from '../../src/app.js';
 import { loadCapabilitiesPrompt } from '../../src/assistant/prompt.js';
 import { assistantRouter } from '../../src/assistant/routes.js';
 import {
+  CANDIDATES_FOR_PROPOSAL,
+  CANDIDATES_WITH_LICENSE_FILTER,
   createProposal,
   ProposalAbortedError,
   RetrievalTimeoutError,
@@ -235,7 +237,7 @@ describe('propuesta de stack', () => {
       expect(result.proposal.gaps.map((g) => g.capability)).toEqual(['search', 'payments']);
     });
 
-    it('con licencias pide más candidatos, para no perder los compatibles fuera de los 3 primeros', async () => {
+    it('pide más candidatos que OB-33 para re-rankearlos, y aún más con licencias', async () => {
       const limits: Array<number | undefined> = [];
       const search: typeof searchCatalog = async (db, input, deps) => {
         limits.push(input.limit);
@@ -253,9 +255,12 @@ describe('propuesta de stack', () => {
       limits.length = 0;
       await run({ licenses: ['mit'] });
 
-      expect(withoutLicenses).toEqual([3]);
-      expect(new Set(limits).size).toBe(1);
-      expect(limits[0]).toBeGreaterThan(3);
+      // OB-33 sigue con 3; la propuesta trae más para ordenarlos por puntaje.
+      expect(withoutLicenses).toEqual([CANDIDATES_FOR_PROPOSAL]);
+      expect(CANDIDATES_FOR_PROPOSAL).toBeGreaterThan(3);
+      expect(limits).toEqual(
+        limits.map(() => Math.max(CANDIDATES_FOR_PROPOSAL, CANDIDATES_WITH_LICENSE_FILTER)),
+      );
     });
 
     it('descarta candidatos cuyo id no existe en el catálogo', async () => {

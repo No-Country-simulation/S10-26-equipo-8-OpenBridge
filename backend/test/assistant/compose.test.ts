@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   composeProposal,
   NO_MATURE_OPTION,
+  type ComposerCandidate,
   type ComposerCapability,
   type HydratedRepository,
 } from '../../src/assistant/compose.js';
@@ -21,9 +22,13 @@ const repo = (
   ...extra,
 });
 
+// Por defecto todos los candidatos son igual de parecidos a la consulta: así
+// los tests que no miran el ranking no dependen de la similitud.
+const DEFAULT_SIMILARITY = 0.8;
+
 const capability = (
   key: string,
-  candidateIds: string[],
+  candidates: Array<string | ComposerCandidate>,
   extra: Partial<ComposerCapability> = {},
 ): ComposerCapability => ({
   key,
@@ -31,7 +36,9 @@ const capability = (
   reason: `El negocio necesita ${key}.`,
   integrationType: 'REST_API',
   dependsOn: [],
-  candidateIds,
+  candidates: candidates.map((candidate) =>
+    typeof candidate === 'string' ? { id: candidate, similarity: DEFAULT_SIMILARITY } : candidate,
+  ),
   ...extra,
 });
 
@@ -58,7 +65,7 @@ describe('composeProposal', () => {
     expect(Object.keys(proposal.capabilities[0])).toEqual(['key', 'name', 'reason']);
   });
 
-  it('elige el mejor candidato elegible (orden de la búsqueda) y el siguiente como alternativa', () => {
+  it('a igual similitud y estrellas, elige el elegible más sano y el siguiente como alternativa', () => {
     const proposal = compose(
       [capability('auth', ['low', 'a', 'b', 'c'])],
       [repo('low', 30), repo('a', 60), repo('b', 95), repo('c', 80)],
@@ -67,10 +74,10 @@ describe('composeProposal', () => {
     expect(proposal.components).toEqual([
       {
         capability: 'auth',
-        repository: { id: 'a', fullName: 'acme/a', healthScore: 60, licenseSpdx: 'MIT' },
+        repository: { id: 'b', fullName: 'acme/b', healthScore: 95, licenseSpdx: 'MIT' },
         justification: expect.any(String),
         integrationType: 'REST_API',
-        alternative: { id: 'b', fullName: 'acme/b' },
+        alternative: { id: 'c', fullName: 'acme/c' },
       },
     ]);
     expect(proposal.gaps).toEqual([]);
@@ -85,8 +92,9 @@ describe('composeProposal', () => {
   it('exige salud de al menos max(40, minHealth); sin puntaje no es elegible', () => {
     const repos = [repo('none', null), repo('h40', 40), repo('h39', 39), repo('h70', 70)];
 
-    const base = compose([capability('auth', ['none', 'h39', 'h40', 'h70'])], repos);
+    const base = compose([capability('auth', ['none', 'h39', 'h40'])], repos);
     expect(base.components[0].repository.id).toBe('h40');
+    expect(base.components[0]).not.toHaveProperty('alternative');
 
     const lowMin = compose([capability('auth', ['h39', 'h40'])], repos, { minHealth: 10 });
     expect(lowMin.components[0].repository.id).toBe('h40');
@@ -159,6 +167,119 @@ describe('composeProposal', () => {
     expect(noLicense.components[0].justification).toBe(
       'El negocio necesita auth. acme/a tiene salud 50/100, sin licencia declarada y 1.200 estrellas en GitHub.',
     );
+  });
+
+  describe('ranking de candidatos', () => {
+    const hit = (id: string, similarity: number): ComposerCandidate => ({ id, similarity });
+    const chosen = (proposal: ReturnType<typeof compose>) => ({
+      repository: proposal.components[0]?.repository.id,
+      alternative: proposal.components[0]?.alternative?.id,
+    });
+
+    it('un candidato sano y popular apenas menos parecido le gana a uno débil', () => {
+      // La forma de flexsearch (más parecido, salud 42) contra meilisearch y typesense.
+      const proposal = compose(
+        [
+          capability('search', [
+            hit('flexsearch', 0.62),
+            hit('meilisearch', 0.58),
+            hit('typesense', 0.57),
+          ]),
+        ],
+        [
+          repo('flexsearch', 42, { stars: 12_000 }),
+          repo('meilisearch', 85, { stars: 48_000 }),
+          repo('typesense', 80, { stars: 21_000 }),
+        ],
+      );
+
+      expect(chosen(proposal)).toEqual({ repository: 'meilisearch', alternative: 'typesense' });
+    });
+
+    it('la similitud sigue pesando: uno mucho más parecido no pierde contra uno algo más sano', () => {
+      const proposal = compose(
+        [capability('database', [hit('relevant', 0.85), hit('offtopic', 0.55)])],
+        [repo('relevant', 55, { stars: 2_000 }), repo('offtopic', 65, { stars: 3_000 })],
+      );
+
+      expect(chosen(proposal)).toEqual({ repository: 'relevant', alternative: 'offtopic' });
+    });
+
+    it('la popularidad es relativa a los candidatos de la capacidad', () => {
+      // Mismo parecido y salud: gana el de más estrellas, aunque sean pocas.
+      const proposal = compose(
+        [capability('auth', [hit('few', 0.7), hit('more', 0.7)])],
+        [repo('few', 70, { stars: 10 }), repo('more', 70, { stars: 90 })],
+      );
+      expect(chosen(proposal)).toEqual({ repository: 'more', alternative: 'few' });
+
+      // Sin estrellas en ninguno no se rompe (log10(1) = 0).
+      const noStars = compose(
+        [capability('auth', [hit('a', 0.7), hit('b', 0.9)])],
+        [repo('a', 70, { stars: 0 }), repo('b', 70, { stars: 0 })],
+      );
+      expect(chosen(noStars)).toEqual({ repository: 'b', alternative: 'a' });
+    });
+
+    it('los empates se resuelven por el orden de la búsqueda, siempre igual', () => {
+      const repos = [repo('x', 70), repo('y', 70)];
+
+      const xFirst = compose([capability('auth', [hit('x', 0.7), hit('y', 0.7)])], repos);
+      const yFirst = compose([capability('auth', [hit('y', 0.7), hit('x', 0.7)])], repos);
+
+      expect(chosen(xFirst)).toEqual({ repository: 'x', alternative: 'y' });
+      expect(chosen(yFirst)).toEqual({ repository: 'y', alternative: 'x' });
+      expect(compose([capability('auth', [hit('x', 0.7), hit('y', 0.7)])], repos)).toEqual(xFirst);
+    });
+
+    it('la alternativa es la siguiente del mismo ranking, no la siguiente de la búsqueda', () => {
+      const proposal = compose(
+        [capability('auth', [hit('top', 0.8), hit('weak', 0.79), hit('strong', 0.75)])],
+        [
+          repo('top', 95, { stars: 50_000 }),
+          repo('weak', 41, { stars: 100 }),
+          repo('strong', 90, { stars: 40_000 }),
+        ],
+      );
+
+      expect(chosen(proposal)).toEqual({ repository: 'top', alternative: 'strong' });
+    });
+
+    it('con el mejor ya usado por otra capacidad, elige el siguiente del ranking', () => {
+      const proposal = compose(
+        [
+          capability('database', [hit('supa', 0.8)]),
+          capability('auth', [hit('supa', 0.8), hit('weak', 0.79), hit('kc', 0.75)]),
+        ],
+        [repo('supa', 90), repo('weak', 41, { stars: 10 }), repo('kc', 85)],
+      );
+
+      expect(proposal.components[1]).toMatchObject({
+        repository: { id: 'kc' },
+        alternative: { id: 'supa' },
+      });
+    });
+  });
+
+  describe('puntuación de la justificación', () => {
+    const justification = (reason: string) =>
+      compose([capability('auth', ['a'], { reason })], [repo('a', 88)]).components[0].justification;
+    const TAIL = ' acme/a tiene salud 88/100, licencia MIT y 1.200 estrellas en GitHub.';
+
+    it.each([
+      ['Se consulta rápido.'],
+      ['Se consulta rápido!'],
+      ['Se consulta rápido?'],
+      ['Se consulta rápido…'],
+      ['Se consulta rápido...'],
+      ['Se consulta rápido.  '],
+      ['Se consulta rápido   '],
+      ['Se consulta rápido'],
+    ])('%j termina en un solo punto', (reason) => {
+      const text = justification(reason);
+      expect(text).toBe(`Se consulta rápido.${TAIL}`);
+      expect(text).not.toMatch(/\.\.|\.,| \./);
+    });
   });
 
   describe('tipo de integración del componente', () => {
