@@ -47,7 +47,6 @@ export function ActiveFilters({ filters, params }: Props) {
   // Quitar un filtro vuelve a la primera página; la búsqueda y el orden se conservan.
   const hrefWithout = (remove: CatalogParams) =>
     catalogHref({ ...params, ...remove, page: undefined });
-  const clearAll = catalogHref({ q: params.q, sort: params.sort, size: params.size });
 
   return (
     <ul aria-label="Filtros activos" className="flex flex-wrap items-center gap-2">
@@ -64,15 +63,6 @@ export function ActiveFilters({ filters, params }: Props) {
           </Link>
         </li>
       ))}
-      <li>
-        <Link
-          href={clearAll}
-          scroll={false}
-          className="rounded-sm px-1 text-[13px] text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground/40"
-        >
-          Limpiar
-        </Link>
-      </li>
     </ul>
   );
 }
