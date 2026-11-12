@@ -1,4 +1,4 @@
-import { apiFetch, isApiEnabled } from '@/lib/api';
+import { ApiError, apiFetch, isApiEnabled } from '@/lib/api';
 
 export type MaintenanceLevel = 'ACTIVE' | 'MODERATE' | 'AT_RISK' | 'ARCHIVED';
 
@@ -464,9 +464,24 @@ const mockHomepages: Record<string, string> = {
   'mock-ollama': 'https://ollama.com',
 };
 
-// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
-// Se cambia por el fetch a GET /api/v1/repositories/:id cuando el backend esté listo.
+// GET /api/v1/repositories/:id. Devuelve null si no existe (404) para que la página muestre «no
+// encontrado»; cualquier otro fallo se lanza. Sin NEXT_PUBLIC_API_URL usa datos de prueba.
 export async function getRepository(id: string): Promise<RepositoryDetail | null> {
+  if (!isApiEnabled) return getMockRepository(id);
+  try {
+    const { data } = await apiFetch<{ data: RepositoryDetail }>(
+      `/repositories/${encodeURIComponent(id)}`,
+      { next: { revalidate: 60 } },
+    );
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+// Mock del detalle: deriva los campos que el listado no trae a partir de los que sí.
+async function getMockRepository(id: string): Promise<RepositoryDetail | null> {
   const repository = [...mockRepositories, ...catalogOnlyRepositories].find((r) => r.id === id);
   if (!repository) return null;
 
