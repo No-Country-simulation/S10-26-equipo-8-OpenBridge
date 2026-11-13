@@ -13,10 +13,10 @@ export default function Error({
     <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center gap-2 px-4 py-16 text-center sm:px-8">
       <TriangleAlert className="size-6 text-destructive" strokeWidth={1.5} aria-hidden="true" />
       <h2 className="mt-1 text-base font-semibold text-foreground">
-        No pudimos cargar las categorías
+        No pudimos cargar esta página
       </h2>
       <p className="max-w-xs text-sm text-muted-foreground">
-        El catálogo no respondió. Probá de nuevo en unos segundos.
+        El servidor no respondió. Probá de nuevo en unos segundos.
       </p>
       <Button variant="outline" size="lg" onClick={reset} className="mt-3">
         <RotateCw strokeWidth={1.5} aria-hidden="true" />
