@@ -4,6 +4,7 @@ import {
   capabilitiesRequestSchema,
   capabilitiesResponseSchema,
   MAX_DESCRIPTION,
+  MAX_EXCLUDED,
   MAX_LICENSES,
   MIN_DESCRIPTION,
   proposalRequestSchema,
@@ -234,7 +235,11 @@ export const openApiDocument = {
           'negocio en capacidades (con su tipo de integración y sus dependencias); por cada capacidad se buscan ' +
           'candidatos, se verifican contra el catálogo y se elige el mejor con salud de al menos ' +
           'max(40, constraints.minHealth) y, si se piden, licencia en constraints.licenses (SPDX, hasta ' +
-          `${MAX_LICENSES}). Sin candidato elegible, la capacidad va a gaps ("${NO_MATURE_OPTION}"). Las ` +
+          `${MAX_LICENSES}). constraints.exclude (ids de repos del catálogo, hasta ${MAX_EXCLUDED}; los ` +
+          'repetidos se descartan) lista los repos que el usuario pidió cambiar: no se recomiendan ni como ' +
+          'componente ni como alternativa en ninguna capacidad, y se piden más candidatos a la búsqueda para ' +
+          'que el siguiente del ranking siga al alcance. ' +
+          `Sin candidato elegible, la capacidad va a gaps ("${NO_MATURE_OPTION}"). Las ` +
           'conexiones salen de las ideas APPROVED del catálogo (source CATALOG) o, si no hay, de las ' +
           'dependencias que sugirió el modelo (source MODEL_SUGGESTION). Entre dos repos hay a lo sumo una ' +
           'conexión: si el catálogo ya los conecta, en cualquier dirección, no se agrega la sugerencia.\n\n' +

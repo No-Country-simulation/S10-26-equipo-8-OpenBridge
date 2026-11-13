@@ -2,6 +2,7 @@ import { inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { repository } from '../db/schema.js';
 import type { IdeaModel } from '../ideas/model.js';
+import { MAX_SEARCH_LIMIT } from '../search/schema.js';
 import type { EmbedQuery } from '../search/service.js';
 import { analyzeBusiness, retrieveCandidates, type SearchCatalog } from './capabilities.js';
 import { composeProposal, MIN_MATURE_HEALTH, type HydratedRepository } from './compose.js';
@@ -9,6 +10,7 @@ import type { CapabilitiesPrompt } from './prompt.js';
 import {
   proposalRequestSchema,
   type Proposal,
+  type ProposalConstraints,
   type ProposalRequest,
   type ProposalStage,
 } from './schema.js';
@@ -28,6 +30,18 @@ export const PROPOSAL_TOTAL_BUDGET_MS = 27_000;
 // consulta se vectoriza una vez, solo crece el LIMIT de la búsqueda.
 export const CANDIDATES_FOR_PROPOSAL = 8;
 export const CANDIDATES_WITH_LICENSE_FILTER = 10;
+
+// Candidatos a pedir por capacidad. La búsqueda no filtra por licencia ni por
+// exclusiones: con licencias pedidas se traen más para que el composer
+// encuentre un compatible en lugar de declarar un hueco, y cada repo excluido
+// suma uno para que el siguiente real siga al alcance. Nunca más que el
+// máximo de la búsqueda.
+export function candidateLimit({ licenses, exclude }: ProposalConstraints): number {
+  const base = licenses?.length
+    ? Math.max(CANDIDATES_FOR_PROPOSAL, CANDIDATES_WITH_LICENSE_FILTER)
+    : CANDIDATES_FOR_PROPOSAL;
+  return Math.min(MAX_SEARCH_LIMIT, base + (exclude?.length ?? 0));
+}
 
 // Las búsquedas no terminaron dentro del presupuesto total (Ollama no
 // vectoriza a tiempo o la base no responde).
@@ -142,12 +156,7 @@ export async function createProposal(
       const found = await retrieveCandidates(db, analysis.capabilities, {
         embedQuery,
         minHealth,
-        // La búsqueda no filtra por licencia: con licencias pedidas se traen más
-        // candidatos para que el composer encuentre un compatible en lugar de
-        // declarar un hueco.
-        limit: constraints.licenses?.length
-          ? Math.max(CANDIDATES_FOR_PROPOSAL, CANDIDATES_WITH_LICENSE_FILTER)
-          : CANDIDATES_FOR_PROPOSAL,
+        limit: candidateLimit(constraints),
         search,
       });
       if (signal?.aborted) throw new ProposalAbortedError();

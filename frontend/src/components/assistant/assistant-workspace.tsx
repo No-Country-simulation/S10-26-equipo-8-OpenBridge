@@ -1,16 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ConversationPanel } from '@/components/assistant/conversation-panel';
+import { ConversationPanel, type Adjustment } from '@/components/assistant/conversation-panel';
 import { MapPanel } from '@/components/assistant/map-panel';
 import {
   MAX_DESCRIPTION,
+  MAX_EXCLUDED,
   MIN_DESCRIPTION,
   streamProposal,
   type AssistantError,
   type Proposal,
   type ProposalStage,
 } from '@/lib/assistant';
+import { namedComponents } from '@/lib/assistant-format';
+
+const ADJUST_HINT =
+  'Por ahora puedo reemplazar herramientas de la propuesta: nombrá cuál querés cambiar (por ejemplo, «cambiá Authelia»).';
 
 type State =
   | { status: 'idle' }
@@ -27,29 +32,54 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
   const [state, setState] = useState<State>(
     autoStart ? { status: 'loading', stage: 'ANALYZING' } : { status: 'idle' },
   );
+  // Ajustes pedidos sobre la propuesta y los repos que el usuario pidió cambiar; viven hasta
+  // "Nueva consulta".
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [exclude, setExclude] = useState<string[]>([]);
+  // La última propuesta que llegó: un ajuste se puede pedir aunque el reintento haya fallado.
+  const lastProposal = useRef<Proposal | null>(null);
   const controller = useRef<AbortController | null>(null);
 
-  async function stream(description: string) {
+  async function stream(description: string, excluded: string[]) {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
 
-    for await (const event of streamProposal(description, {}, current.signal)) {
+    const constraints = excluded.length > 0 ? { exclude: excluded } : {};
+    for await (const event of streamProposal(description, constraints, current.signal)) {
       if (current.signal.aborted) return;
       if (event.type === 'progress') setState({ status: 'loading', stage: event.stage });
-      else if (event.type === 'result') setState({ status: 'done', proposal: event.proposal });
-      else setState({ status: 'error', error: event.error });
+      else if (event.type === 'result') {
+        lastProposal.current = event.proposal;
+        setState({ status: 'done', proposal: event.proposal });
+      } else setState({ status: 'error', error: event.error });
     }
   }
 
-  function run(description: string) {
+  function run(description: string, excluded = exclude) {
     setSubmitted(description);
     setState({ status: 'loading', stage: 'ANALYZING' });
-    return stream(description);
+    return stream(description, excluded);
+  }
+
+  // Un ajuste reemplaza las herramientas de la propuesta actual que el texto nombra: se excluyen
+  // y se vuelve a pedir la propuesta con la descripción original. Si no nombra ninguna, se
+  // explica qué se puede pedir sin llamar a la API.
+  function adjust(text: string) {
+    if (!submitted || state.status === 'loading') return;
+    const named = lastProposal.current ? namedComponents(lastProposal.current, text) : [];
+    if (named.length === 0) {
+      setAdjustments((list) => [...list, { text, hint: ADJUST_HINT }]);
+      return;
+    }
+    const excluded = [...new Set([...exclude, ...named])].slice(-MAX_EXCLUDED);
+    setExclude(excluded);
+    setAdjustments((list) => [...list, { text }]);
+    void run(submitted, excluded);
   }
 
   useEffect(() => {
-    if (autoStart) void stream(initialDescription);
+    if (autoStart) void stream(initialDescription, []);
     // Si se sale de la pantalla a mitad de una consulta, se corta el pedido.
     return () => controller.current?.abort();
     // Solo al montar: la consulta del home se envía una vez.
@@ -60,6 +90,9 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
   function reset() {
     controller.current?.abort();
     setSubmitted(null);
+    setAdjustments([]);
+    setExclude([]);
+    lastProposal.current = null;
     setState({ status: 'idle' });
   }
 
@@ -71,8 +104,10 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
           submitted={submitted}
           initialDraft={autoStart ? '' : initialDescription}
           loadingStage={state.status === 'loading' ? state.stage : null}
+          adjustments={adjustments}
           proposal={state.status === 'done' ? state.proposal : undefined}
-          onSubmit={run}
+          onSubmit={(description) => run(description)}
+          onAdjust={adjust}
           onStop={reset}
           onRetry={() => submitted && run(submitted)}
         />
