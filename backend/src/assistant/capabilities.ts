@@ -40,6 +40,28 @@ export type DecomposeResult =
 
 type ParseResult = { success: true; output: ModelOutput } | { success: false; error: string };
 
+// Los modelos chicos a veces repiten una capacidad entera. Rechazar la
+// respuesta por eso gasta el reintento y suele terminar en error: se queda la
+// primera aparición de cada key y el esquema valida el resto (incluido el
+// mínimo de capacidades, que puede no alcanzarse después de quitar repetidas).
+function withoutRepeatedKeys(json: unknown): unknown {
+  if (typeof json !== 'object' || json === null) return json;
+  const { capabilities } = json as { capabilities?: unknown };
+  if (!Array.isArray(capabilities)) return json;
+  const seen = new Set<unknown>();
+  const unique = capabilities.filter((capability) => {
+    const key =
+      typeof capability === 'object' && capability !== null
+        ? (capability as { key?: unknown }).key
+        : undefined;
+    if (typeof key !== 'string') return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { ...json, capabilities: unique };
+}
+
 function parseOutput(raw: string): ParseResult {
   let json: unknown;
   try {
@@ -47,7 +69,7 @@ function parseOutput(raw: string): ParseResult {
   } catch {
     return { success: false, error: 'La respuesta no es JSON válido.' };
   }
-  const result = modelOutputSchema.safeParse(json);
+  const result = modelOutputSchema.safeParse(withoutRepeatedKeys(json));
   return result.success
     ? { success: true, output: result.data }
     : { success: false, error: z.prettifyError(result.error) };
