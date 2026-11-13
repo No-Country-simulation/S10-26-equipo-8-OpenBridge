@@ -7,11 +7,13 @@ import { modelOutputSchema, modelOutputV1Schema, type ModelOutput } from './sche
 // (system.md y examples/) y no se edita; para cambiarla se crea otra.
 const PROMPTS_DIR = new URL('../../prompts/assistant/capabilities/', import.meta.url);
 
-// v2 (OB-34) suma integrationType y dependsOn a cada capacidad.
-export const CAPABILITIES_PROMPT_VERSION = 'v2';
+// v2 (OB-34) suma integrationType y dependsOn a cada capacidad. v3 mantiene
+// ese esquema y aclara que una herramienta interna "para los empleados" ya
+// tiene contexto suficiente, con un ejemplo que contrasta con el vago.
+export const CAPABILITIES_PROMPT_VERSION = 'v3';
 
 // Esquema de salida de cada versión: los ejemplos de v1 siguen siendo válidos
-// para v1 aunque la app ya no la use.
+// para v1 aunque la app ya no la use; v2 y v3 comparten el actual.
 export function modelOutputSchemaFor(version: string) {
   return version === 'v1' ? modelOutputV1Schema : modelOutputSchema;
 }
