@@ -142,11 +142,23 @@ function Inner({
       lead: `${c.name} usa ${c.spdx}`,
       text: 'Revisá el uso comercial.',
     })),
-    ...suggested.map((c, i) => ({
-      key: `suggested-${i}`,
-      lead: 'Conexión sugerida por el modelo',
-      text: 'No viene del catálogo curado: validala antes de adoptarla.',
-    })),
+    // Una sola advertencia para todas las conexiones sugeridas: cada una ya se
+    // marca en el mapa y en la ficha.
+    ...(suggested.length === 0
+      ? []
+      : [
+          suggested.length === 1
+            ? {
+                key: 'suggested',
+                lead: 'Conexión sugerida por el modelo',
+                text: 'No viene del catálogo curado: validala antes de adoptarla.',
+              }
+            : {
+                key: 'suggested',
+                lead: `${suggested.length} conexiones sugeridas por el modelo`,
+                text: 'No vienen del catálogo curado: validalas antes de adoptarlas.',
+              },
+        ]),
   ];
 
   return (
