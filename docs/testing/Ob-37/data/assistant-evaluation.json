@@ -1,0 +1,318 @@
+[
+  {
+    "id": "EVAL-001",
+    "title": "E-commerce B2B de logística",
+    "business_description": "Estoy construyendo un e-commerce B2B de logística donde empresas puedan consultar un catálogo de insumos, gestionar pedidos y pagar en línea.",
+    "expected_capabilities": ["auth", "database", "payments", "search", "analytics"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-002",
+    "title": "Marketplace multi-vendedor",
+    "business_description": "Necesito un marketplace donde varios vendedores publiquen productos y compradores puedan buscar, realizar pedidos y pagar.",
+    "expected_capabilities": ["auth", "database", "payments", "search"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "keycloak/keycloak",
+          "nextauthjs/next-auth",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-003",
+    "title": "Plataforma educativa",
+    "business_description": "Quiero una plataforma educativa donde docentes publiquen cursos, alumnos se inscriban, paguen y consulten su progreso.",
+    "expected_capabilities": ["auth", "database", "payments", "analytics"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-004",
+    "title": "Turnos médicos",
+    "business_description": "Una clínica necesita que pacientes soliciten turnos, reciban recordatorios y que los profesionales administren sus agendas.",
+    "expected_capabilities": ["auth", "database", "notifications"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "keycloak/keycloak",
+          "nextauthjs/next-auth",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-005",
+    "title": "Asistente de preguntas sobre documentos",
+    "business_description": "Estoy creando una aplicación interna que permita cargar documentos PDF y hacer preguntas sobre su contenido usando inteligencia artificial y recuperación de contexto.",
+    "expected_capabilities": ["auth", "database", "ai", "search"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "ai",
+        "acceptable_repositories": ["langchain-ai/langchain", "ollama/ollama"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-006",
+    "title": "Gestión de inventario",
+    "business_description": "Necesito un sistema de inventario para registrar productos, controlar existencias, gestionar movimientos y generar reportes.",
+    "expected_capabilities": ["auth", "database", "analytics"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "keycloak/keycloak",
+          "nextauthjs/next-auth",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-007",
+    "title": "Reservas hoteleras",
+    "business_description": "Quiero una plataforma de reservas hoteleras donde los huéspedes consulten disponibilidad, reserven habitaciones y paguen en línea.",
+    "expected_capabilities": ["auth", "database", "payments", "search"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-008",
+    "title": "Delivery de restaurantes",
+    "business_description": "Estoy desarrollando una aplicación de delivery que conecta clientes con restaurantes, permite hacer pedidos, pagar y seguir el envío.",
+    "expected_capabilities": ["auth", "database", "payments", "search", "notifications"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-009",
+    "title": "Red profesional",
+    "business_description": "Una red profesional necesita perfiles de usuarios, publicaciones, conexiones entre miembros, búsqueda de personas y notificaciones.",
+    "expected_capabilities": ["auth", "database", "search", "notifications"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "nextauthjs/next-auth",
+          "keycloak/keycloak",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-010",
+    "title": "Plataforma de streaming",
+    "business_description": "Necesito una plataforma de streaming con registro de usuarios, catálogo de contenido, búsqueda, suscripciones y reproducción de video.",
+    "expected_capabilities": ["auth", "database", "payments", "search", "video"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "keycloak/keycloak",
+          "nextauthjs/next-auth",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "search",
+        "acceptable_repositories": ["meilisearch/meilisearch", "typesense/typesense"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-011",
+    "title": "Servicios financieros",
+    "business_description": "Una empresa financiera quiere que sus clientes consulten cuentas, revisen movimientos y realicen transferencias con controles de seguridad y auditoría.",
+    "expected_capabilities": ["auth", "database", "payments", "analytics"],
+    "expected_components": [
+      {
+        "capability": "auth",
+        "acceptable_repositories": [
+          "keycloak/keycloak",
+          "nextauthjs/next-auth",
+          "supabase/supabase"
+        ]
+      },
+      {
+        "capability": "database",
+        "acceptable_repositories": ["postgres/postgres", "supabase/supabase"]
+      },
+      {
+        "capability": "payments",
+        "acceptable_repositories": ["juspay/hyperswitch"]
+      },
+      {
+        "capability": "analytics",
+        "acceptable_repositories": ["metabase/metabase", "apache/superset", "grafana/grafana"]
+      }
+    ],
+    "expected_behavior": "recommend"
+  },
+  {
+    "id": "EVAL-012",
+    "title": "Descripción insuficiente",
+    "business_description": "Quiero hacer una app.",
+    "expected_capabilities": [],
+    "expected_components": [],
+    "expected_behavior": "ask_for_context",
+    "notes": "Descripción deliberadamente vaga: no indica industria, usuarios, problema ni funcionalidades. Se envía solo `business_description`; esta explicación no se manda al modelo."
+  }
+]

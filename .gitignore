@@ -5,6 +5,9 @@ build/
 out/
 coverage/
 /backend/reports/
+# Corridas de la evaluación del asistente (OB-37): se generan al ejecutar los scripts
+/docs/testing/Ob-37/results/*
+!/docs/testing/Ob-37/results/README.md
 
 .env
 .env.*
