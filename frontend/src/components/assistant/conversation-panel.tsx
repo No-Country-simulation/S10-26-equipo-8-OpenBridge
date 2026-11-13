@@ -5,6 +5,13 @@ import { useState, type KeyboardEvent } from 'react';
 import { isCopyleft } from '@/components/shared/license-badge';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   MAX_DESCRIPTION,
   MIN_DESCRIPTION,
   type Proposal,
@@ -32,6 +39,23 @@ const examples = [
     text: 'Marketplace de servicios freelance con chat en tiempo real, búsqueda por habilidades y cobros divididos entre plataforma y profesional.',
   },
 ];
+
+// Valor de "sin elegir": el Select no admite cadena vacía como opción.
+const NONE = 'none';
+const scaleItems = [
+  { value: NONE, label: 'Sin definir' },
+  { value: 'prototipo', label: 'Prototipo' },
+  { value: 'pyme', label: 'Pyme' },
+  { value: 'enterprise', label: 'Enterprise' },
+];
+const hostingItems = [
+  { value: NONE, label: 'Indistinto' },
+  { value: 'self-hosted', label: 'Self-hosted' },
+  { value: 'cloud', label: 'Cloud' },
+];
+
+const selectTriggerClass =
+  'w-full rounded-md border-border bg-background data-[size=default]:h-9 dark:bg-background dark:hover:bg-muted';
 
 const fieldClass =
   'h-9 w-full rounded-md border border-border bg-background px-3 text-[13px] outline-none placeholder:text-muted-foreground focus-visible:border-foreground/40 disabled:opacity-60';
@@ -167,31 +191,44 @@ export function ConversationPanel({
                 className={fieldClass}
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-              Escala
-              <select
-                value={scale}
-                onChange={(e) => setScale(e.target.value)}
-                className={fieldClass}
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <span id="scale-label">Escala</span>
+              <Select
+                items={scaleItems}
+                value={scale || NONE}
+                onValueChange={(value) => setScale(value === NONE || !value ? '' : value)}
               >
-                <option value="">Sin definir</option>
-                <option value="prototipo">Prototipo</option>
-                <option value="pyme">Pyme</option>
-                <option value="enterprise">Enterprise</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-              Hosting
-              <select
-                value={hosting}
-                onChange={(e) => setHosting(e.target.value)}
-                className={fieldClass}
+                <SelectTrigger aria-labelledby="scale-label" className={selectTriggerClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {scaleItems.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <span id="hosting-label">Hosting</span>
+              <Select
+                items={hostingItems}
+                value={hosting || NONE}
+                onValueChange={(value) => setHosting(value === NONE || !value ? '' : value)}
               >
-                <option value="">Indistinto</option>
-                <option value="self-hosted">Self-hosted</option>
-                <option value="cloud">Cloud</option>
-              </select>
-            </label>
+                <SelectTrigger aria-labelledby="hosting-label" className={selectTriggerClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {hostingItems.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <label className="flex flex-col gap-1.5 text-xs text-muted-foreground">
               Lenguaje
               <input
@@ -305,7 +342,7 @@ export function ConversationPanel({
       >
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 focus-within:border-foreground/40">
           <label htmlFor="adjust" className="sr-only">
-            Pedí un ajuste
+            Refinar y regenerar
           </label>
           <textarea
             id="adjust"
@@ -314,16 +351,16 @@ export function ConversationPanel({
             onKeyDown={(e) => sendOnEnter(e, sendAdjust)}
             rows={2}
             disabled={loading}
-            placeholder={'Pedí un ajuste: "cambiá Keycloak por algo más liviano"'}
+            placeholder={'Refiná la idea: "sin servicios pagos, todo self-hosted"'}
             className="resize-none bg-transparent text-[13px] leading-5 outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           <div className="flex items-center justify-end gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              Enter para enviar
+            <span className="text-xs text-muted-foreground">
+              Se genera una propuesta nueva con tu descripción y este cambio
             </span>
             <button
               type="submit"
-              aria-label="Enviar ajuste"
+              aria-label="Regenerar con este ajuste"
               disabled={loading || adjust.trim().length === 0}
               className="flex size-8 items-center justify-center rounded-md bg-foreground text-background transition-opacity disabled:opacity-40"
             >
