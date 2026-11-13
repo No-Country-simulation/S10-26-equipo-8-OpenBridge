@@ -46,6 +46,8 @@ type Props = {
   // Lo que se envió en la última consulta; null mientras no hay conversación.
   submitted: string | null;
   adjustments?: Adjustment[];
+  // El asistente pidió más contexto: el campo de abajo responde sus preguntas en vez de ajustar.
+  needsContext?: boolean;
   // Texto que llega desde el home sin poder enviarse (muy corto o muy largo).
   initialDraft?: string;
   loadingStage: ProposalStage | null;
@@ -66,6 +68,7 @@ function sendOnEnter(e: KeyboardEvent, send: () => void) {
 export function ConversationPanel({
   submitted,
   adjustments = [],
+  needsContext = false,
   initialDraft = '',
   loadingStage,
   proposal,
@@ -320,7 +323,7 @@ export function ConversationPanel({
       >
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-background p-3 focus-within:border-foreground/40">
           <label htmlFor="adjust" className="sr-only">
-            Pedí un ajuste
+            {needsContext ? 'Respondé lo que falta' : 'Pedí un ajuste'}
           </label>
           <textarea
             id="adjust"
@@ -329,7 +332,11 @@ export function ConversationPanel({
             onKeyDown={(e) => sendOnEnter(e, sendAdjust)}
             rows={2}
             disabled={loading}
-            placeholder={'Pedí un ajuste: "cambiá Keycloak por algo más liviano"'}
+            placeholder={
+              needsContext
+                ? 'Respondé lo que falta: rubro, quiénes lo usan, cuántos usuarios'
+                : 'Pedí un ajuste: "cambiá Keycloak por algo más liviano"'
+            }
             className="resize-none bg-transparent text-[13px] leading-5 outline-none placeholder:text-muted-foreground disabled:opacity-60"
           />
           <div className="flex items-center justify-end gap-3">
@@ -338,7 +345,7 @@ export function ConversationPanel({
             </span>
             <button
               type="submit"
-              aria-label="Enviar ajuste"
+              aria-label={needsContext ? 'Enviar respuesta' : 'Enviar ajuste'}
               disabled={loading || adjust.trim().length === 0}
               className="flex size-8 items-center justify-center rounded-md bg-foreground text-background transition-opacity disabled:opacity-40"
             >
