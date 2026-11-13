@@ -4,6 +4,56 @@ Catálogo inteligente de herramientas open source con asistente RAG que recomien
 
 Simulación Laboral NoCountry — S10-26, equipo 8.
 
+**Producción:** https://openbridge-blue.vercel.app · API: https://openbridge-api-utri.onrender.com/health
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+  P([Persona]) --> W["Interfaz<br/>Next.js · Vercel"]
+  W -->|"REST + SSE"| A["Servidor<br/>Express · Render"]
+  A --> DB[("Neon<br/>Postgres + pgvector")]
+  A -->|"proxy con clave"| O["Ollama del equipo (GPU)<br/>qwen2.5:7b · bge-m3"]
+  GA["GitHub Actions<br/>diario, 03:00 UTC"] -->|"GraphQL por lotes"| GH[GitHub]
+  GA --> DB
+```
+
+- **Catálogo:** la ingesta diaria trae los metadatos de cada repositorio de `seed/repos.yaml`, calcula un puntaje de salud (0–100) y un nivel de mantenimiento, y lo guarda en Postgres. La interfaz lista, filtra y busca sobre esos datos.
+- **Búsqueda por significado:** cada repositorio y cada idea aprobada tiene un vector (`bge-m3`) en pgvector. La consulta se vectoriza y se compara por similitud coseno.
+- **Asistente:** a partir de la descripción de un negocio, el modelo identifica las capacidades técnicas que hacen falta (inicio de sesión, pagos, base de datos…); por cada una se busca en el catálogo y se elige el repositorio con mejor combinación de similitud, salud y popularidad. La propuesta llega a la interfaz por SSE (etapas y resultado) y se dibuja como mapa de arquitectura.
+
+### Decisiones clave
+
+- **Una sola base para todo.** Postgres con pgvector guarda datos y vectores: no hay una base vectorial aparte que mantener ni sincronizar.
+- **El modelo no inventa herramientas.** El modelo solo descompone el negocio en capacidades; los repositorios recomendados salen siempre del catálogo curado. Las conexiones entre piezas que sugiere el modelo y que no vienen del catálogo se marcan en la interfaz para validarlas.
+- **IA en una máquina del equipo.** Render no tiene GPU, así que Ollama corre en la máquina del equipo detrás de un proxy con clave, que solo deja pasar las rutas que usa la API ([docs/deploy.md](docs/deploy.md)). Si esa máquina está apagada, el catálogo sigue funcionando y el asistente responde `503 UPSTREAM_UNAVAILABLE`.
+- **Contrato único.** La interfaz y el servidor hablan por un contrato de API versionado (`/api/v1`) con un objeto de error común; el cliente HTTP de la interfaz lo respeta en todas las pantallas.
+- **Sin servidor, la interfaz no se rompe.** Sin `NEXT_PUBLIC_API_URL` usa datos de prueba; con la API caída, cada pantalla muestra un error con «Reintentar».
+
+### Los tres desafíos del documento original
+
+1. **Ingesta desde GitHub sin saturar la API.** Consultas GraphQL por lotes, manejo del límite de solicitudes con reintentos y una ejecución diaria programada que deja registro de cada corrida.
+2. **Asistente que entiende el contexto, no solo palabras clave.** Generación aumentada por recuperación: primero busca por significado en el catálogo y después redacta la propuesta con lo que encontró.
+3. **Ideas de integración como estructura, no texto plano.** Cada idea tiene un esquema validado (tipo de integración, pasos, etc.); el modelo genera borradores y solo las aprobadas se muestran y se vectorizan.
+
+## Guión de la demo
+
+Unos 5 minutos, sobre https://openbridge-blue.vercel.app.
+
+**Antes de empezar** (con 5 minutos de margen):
+
+1. Abrir https://openbridge-api-utri.onrender.com/health: en el plan gratuito el servidor se duerme a los 15 minutos y la primera consulta tarda cerca de 50 s.
+2. Comprobar que la máquina con Ollama esté encendida, sin suspensión y con el túnel activo. De ella dependen la búsqueda por significado y el asistente: hacer una consulta de prueba en cada uno.
+3. Elegir de antemano una ficha que tenga ideas de integración aprobadas.
+
+**Recorrido:**
+
+1. **Inicio.** Mostrar las categorías, los destacados y, en el pie de página, el total de herramientas y la última sincronización con GitHub.
+2. **Catálogo y filtros.** Entrar a una categoría (por ejemplo, Autenticación), filtrar por «Mantenimiento: Activo» y «Stars mínimas: 10k+» y copiar la dirección: abierta en otra pestaña muestra los mismos resultados.
+3. **Búsqueda por significado.** Buscar algo que no comparta palabras con los nombres, como «login con redes sociales», y ver que aparecen herramientas de autenticación.
+4. **Ficha.** Abrir un repositorio: salud, métricas, licencia e ideas de integración.
+5. **Asistente.** Ir a `/asistente` y pedir: _«Estoy construyendo un e-commerce B2B de logística»_. Mostrar las etapas, la propuesta justificada y el mapa de arquitectura, abrir una herramienta para ver su detalle y descargar el PNG con «Exportar PNG».
+
 ## Stack
 
 - **Frontend:** Next.js + React + Tailwind CSS
