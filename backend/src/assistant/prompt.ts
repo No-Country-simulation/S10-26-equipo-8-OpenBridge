@@ -9,11 +9,15 @@ const PROMPTS_DIR = new URL('../../prompts/assistant/capabilities/', import.meta
 
 // v2 (OB-34) suma integrationType y dependsOn a cada capacidad. v3 mantiene
 // ese esquema y aclara que una herramienta interna "para los empleados" ya
-// tiene contexto suficiente, con un ejemplo que contrasta con el vago.
-export const CAPABILITIES_PROMPT_VERSION = 'v3';
+// tiene contexto suficiente, con un ejemplo que contrasta con el vago. v4
+// pide queries de base de datos concretas (relacional, pgvector si hay RAG),
+// prohíbe capacidades que la descripción no pide (notificaciones, colas…) y
+// enseña que un producto RAG lleva modelo (ai) y orquestador (rag, categoría
+// ai: la búsqueda queda acotada a la categoría, ver retrieveCandidates).
+export const CAPABILITIES_PROMPT_VERSION = 'v4';
 
 // Esquema de salida de cada versión: los ejemplos de v1 siguen siendo válidos
-// para v1 aunque la app ya no la use; v2 y v3 comparten el actual.
+// para v1 aunque la app ya no la use; v2, v3 y v4 comparten el actual.
 export function modelOutputSchemaFor(version: string) {
   return version === 'v1' ? modelOutputV1Schema : modelOutputSchema;
 }
