@@ -1,0 +1,45 @@
+{
+  "description": "Herramienta interna para los empleados: le preguntan en lenguaje natural por las políticas, los procedimientos y el manual de la empresa, y la respuesta indica de qué documento sale. Los documentos son confidenciales y todo corre en nuestros servidores.",
+  "response": {
+    "sufficientContext": true,
+    "missingContext": [],
+    "capabilities": [
+      {
+        "key": "auth",
+        "name": "Inicio de sesión",
+        "reason": "Solo los empleados pueden consultar los documentos confidenciales de la empresa.",
+        "query": "self-hosted single sign-on for employees",
+        "category": "auth",
+        "integrationType": "SDK",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "database",
+        "name": "Base de datos",
+        "reason": "Guarda los documentos cargados, sus fragmentos y qué documento respalda cada respuesta.",
+        "query": "relational database with vector embeddings support",
+        "category": "database",
+        "integrationType": "DOCKER",
+        "dependsOn": []
+      },
+      {
+        "key": "search",
+        "name": "Búsqueda semántica",
+        "reason": "Cada pregunta se responde con los fragmentos de políticas y manuales más parecidos a lo que se preguntó.",
+        "query": "self-hosted vector search engine for document retrieval",
+        "category": "search",
+        "integrationType": "DOCKER",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "ai",
+        "name": "Asistente con IA",
+        "reason": "Un modelo de lenguaje en servidores propios redacta la respuesta citando el documento, sin que los datos salgan de la empresa.",
+        "query": "self-hosted LLM for retrieval-augmented question answering",
+        "category": "ai",
+        "integrationType": "REST_API",
+        "dependsOn": ["search", "auth"]
+      }
+    ]
+  }
+}

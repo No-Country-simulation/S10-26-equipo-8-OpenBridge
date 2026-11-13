@@ -1,0 +1,45 @@
+{
+  "description": "Asistente para el equipo de soporte: consultan en lenguaje natural los manuales técnicos y los casos ya resueltos, y cada respuesta muestra el fragmento y el documento de donde sale. La información es confidencial y no puede salir de nuestros servidores.",
+  "response": {
+    "sufficientContext": true,
+    "missingContext": [],
+    "capabilities": [
+      {
+        "key": "auth",
+        "name": "Inicio de sesión",
+        "reason": "Solo el equipo de soporte puede consultar los manuales y casos confidenciales.",
+        "query": "self-hosted single sign-on for employees",
+        "category": "auth",
+        "integrationType": "SDK",
+        "dependsOn": ["database"]
+      },
+      {
+        "key": "database",
+        "name": "Base de datos",
+        "reason": "Guarda los manuales, los casos resueltos, sus fragmentos con embeddings y los usuarios del equipo.",
+        "query": "relational SQL database such as PostgreSQL with pgvector for documents and embeddings",
+        "category": "database",
+        "integrationType": "DOCKER",
+        "dependsOn": []
+      },
+      {
+        "key": "ai",
+        "name": "Modelo de lenguaje",
+        "reason": "Un modelo en servidores propios redacta cada respuesta sin que la información confidencial salga de la empresa.",
+        "query": "self-hosted LLM inference server",
+        "category": "ai",
+        "integrationType": "DOCKER",
+        "dependsOn": []
+      },
+      {
+        "key": "rag",
+        "name": "Orquestación RAG",
+        "reason": "Recupera los fragmentos de manuales y casos más parecidos a la consulta y arma la respuesta con el documento de origen.",
+        "query": "RAG framework for document question answering with source citations",
+        "category": "ai",
+        "integrationType": "SDK",
+        "dependsOn": ["ai", "database"]
+      }
+    ]
+  }
+}

@@ -88,8 +88,9 @@ function rank(
 
 // Arma la propuesta sin base ni modelo: todo sale de las capacidades del
 // modelo y de los repos hidratados. Reglas:
-// - Elegibles: salud >= max(40, minHealth) y, si se pidieron licencias, una
-//   de ellas; se ordenan por puntaje (ver rank).
+// - Elegibles: salud >= max(40, minHealth), si se pidieron licencias, una
+//   de ellas, y fuera de `exclude` (los repos que el usuario pidió cambiar:
+//   ni componente ni alternativa); se ordenan por puntaje (ver rank).
 // - Componente: el mejor elegible que no se recomendó ya para otra capacidad;
 //   si todos ya se usaron, el mejor de ellos. Alternativa: el siguiente del
 //   mismo orden. Sin elegibles, un gap.
@@ -110,9 +111,11 @@ export function composeProposal(
   const byId = new Map(repositories.map((repo) => [repo.id, repo]));
   const minHealth = Math.max(MIN_MATURE_HEALTH, constraints.minHealth ?? 0);
   const licenses = new Set((constraints.licenses ?? []).map((spdx) => spdx.toLowerCase()));
+  const excluded = new Set(constraints.exclude ?? []);
 
   const isEligible = (repo: HydratedRepository | undefined): repo is EligibleRepository =>
     repo !== undefined &&
+    !excluded.has(repo.id) &&
     repo.healthScore !== null &&
     repo.healthScore >= minHealth &&
     (licenses.size === 0 ||

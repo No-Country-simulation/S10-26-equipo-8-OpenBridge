@@ -44,12 +44,34 @@ export function AssistantErrorMessage({
   const { title, text } = describe(error);
   // Con una descripción vaga o inválida reintentar igual no sirve: hay que editarla.
   const editFirst = error.code === 'VALIDATION_ERROR' || error.code === 'INSUFFICIENT_CONTEXT';
+  // Si faltó contexto, el modelo dice qué le falta: esas preguntas reemplazan el texto genérico.
+  const questions =
+    error.code === 'INSUFFICIENT_CONTEXT'
+      ? error.details.map((d) => d.issue?.trim()).filter((q): q is string => !!q)
+      : [];
 
   return (
     <div role="alert" className="flex flex-col items-center gap-2 px-6 text-center">
       <TriangleAlert className="size-6 text-health-risk" strokeWidth={1.5} aria-hidden="true" />
       <p className="mt-1 text-sm font-semibold">{title}</p>
-      <p className="max-w-90 text-[13px] leading-5 text-muted-foreground">{text}</p>
+      {questions.length > 0 ? (
+        <>
+          <ul className="max-w-110 list-disc space-y-1 pl-5 text-left text-[13px] leading-5 text-muted-foreground">
+            {questions.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ul>
+          <p className="max-w-90 text-[13px] leading-5 text-muted-foreground">
+            Respondé en la conversación y vuelvo a armar la propuesta.
+          </p>
+        </>
+      ) : (
+        <p className="max-w-90 text-[13px] leading-5 text-muted-foreground">
+          {error.code === 'INSUFFICIENT_CONTEXT'
+            ? `${text} Respondé en la conversación y vuelvo a armar la propuesta.`
+            : text}
+        </p>
+      )}
       {!editFirst && (
         <Button type="button" variant="outline" onClick={onRetry} className="mt-2 gap-2">
           <RotateCcw className="size-4" strokeWidth={1.5} aria-hidden="true" />

@@ -15,9 +15,11 @@ describe('prompt de capacidades', () => {
     expect(versions).toContain('v1');
   });
 
-  it('la app usa v2: tipo de integración y dependencias por capacidad', () => {
-    expect(versions).toContain('v2');
-    expect(CAPABILITIES_PROMPT_VERSION).toBe('v2');
+  it('la app usa v4: mismo esquema que v2 (tipo de integración y dependencias)', () => {
+    expect(versions).toEqual(expect.arrayContaining(['v1', 'v2', 'v3', 'v4']));
+    expect(CAPABILITIES_PROMPT_VERSION).toBe('v4');
+    expect(modelOutputSchemaFor('v3')).toBe(modelOutputSchemaFor('v2'));
+    expect(modelOutputSchemaFor('v4')).toBe(modelOutputSchemaFor('v2'));
     const prompt = loadCapabilitiesPrompt();
     expect(prompt.system).toContain('integrationType');
     expect(prompt.system).toContain('dependsOn');
@@ -34,6 +36,117 @@ describe('prompt de capacidades', () => {
         }
       }
     }
+  });
+
+  describe('v3: herramienta interna con contexto suficiente', () => {
+    const prompt = loadCapabilitiesPrompt('v3');
+    const vagueIndex = prompt.examples.findIndex(({ response }) => !response.sufficientContext);
+    const internalIndex = prompt.examples.findIndex(
+      ({ description, response }) =>
+        response.sufficientContext && /emplead|equipo/i.test(description),
+    );
+
+    it('la regla 2 aclara que no hace falta el rubro ni el tamaño de la empresa', () => {
+      expect(prompt.system).toMatch(/para los empleados/i);
+      expect(prompt.system).toMatch(/cantidad de empleados/i);
+    });
+
+    it('sigue pidiendo contexto ante "un sistema para mi empresa que use IA"', () => {
+      expect(prompt.examples[vagueIndex]?.description).toMatch(/sistema para mi empresa/i);
+    });
+
+    // Justo después del vago (los archivos llevan prefijo numérico para fijar
+    // el orden): con qwen2.5:3b fue el orden que no rompió otros casos del
+    // conjunto de evaluación (OB-37).
+    it('contrasta el ejemplo vago con una herramienta interna que sí alcanza, justo después', () => {
+      expect(internalIndex).toBeGreaterThanOrEqual(0);
+      expect(internalIndex).toBe(vagueIndex + 1);
+      expect(internalIndex).toBe(prompt.examples.length - 1);
+      const { response } = prompt.examples[internalIndex]!;
+      expect(response.missingContext).toEqual([]);
+      expect(response.capabilities.map(({ key }) => key)).toEqual(
+        expect.arrayContaining(['auth', 'database', 'search', 'ai']),
+      );
+    });
+  });
+
+  describe('v4: base de datos concreta, sin capacidades inventadas y RAG con orquestador', () => {
+    const prompt = loadCapabilitiesPrompt('v4');
+    const vagueIndex = prompt.examples.findIndex(({ response }) => !response.sufficientContext);
+    const ragExamples = prompt.examples.filter(({ response }) =>
+      response.capabilities.some(({ key }) => key === 'rag'),
+    );
+    const ragIndex = prompt.examples.indexOf(ragExamples[0]!);
+
+    it('la query de database nombra el tipo de base: relacional (PostgreSQL) y pgvector para RAG', () => {
+      expect(prompt.system).toMatch(/relational SQL database/);
+      expect(prompt.system).toMatch(/PostgreSQL/);
+      expect(prompt.system).toMatch(/pgvector/);
+      expect(prompt.system).toMatch(/embebida|analítica/i);
+    });
+
+    it('la regla 4 prohíbe inventar notificaciones, colas, video o mapas', () => {
+      expect(prompt.system).toMatch(/notificaciones/i);
+      expect(prompt.system).toMatch(/colas|streaming/i);
+      expect(prompt.system).toMatch(/mapas/i);
+    });
+
+    it('la regla 3 sigue infiriendo lo obvio (pagos, inicio de sesión, analítica)', () => {
+      expect(prompt.system).toMatch(/un e-commerce necesita cobrar/i);
+      expect(prompt.system).toMatch(/inicio de sesión/i);
+      expect(prompt.system).toMatch(/analítica/i);
+    });
+
+    it('enseña que RAG lleva modelo (ai) y orquestador (rag, categoría ai)', () => {
+      expect(prompt.system).toMatch(/`rag`/);
+      expect(prompt.system).toMatch(/RAG/);
+    });
+
+    it('tiene un solo ejemplo RAG: auth, database con PostgreSQL/pgvector, ai y rag, sin notificaciones', () => {
+      expect(ragExamples).toHaveLength(1);
+      const { description, response } = ragExamples[0]!;
+      expect(response.sufficientContext).toBe(true);
+      expect(response.missingContext).toEqual([]);
+      const byKey = new Map(
+        response.capabilities.map((capability) => [capability.key, capability]),
+      );
+      expect([...byKey.keys()]).toEqual(expect.arrayContaining(['auth', 'database', 'ai', 'rag']));
+      expect(byKey.has('notifications')).toBe(false);
+      expect(byKey.get('ai')?.category).toBe('ai');
+      expect(byKey.get('rag')?.category).toBe('ai');
+      expect(byKey.get('database')?.query).toMatch(/PostgreSQL/);
+      expect(byKey.get('database')?.query).toMatch(/pgvector/);
+      expect(byKey.get('rag')?.dependsOn).toEqual(expect.arrayContaining(['ai']));
+      // Sigue enseñando que una herramienta interna "para el equipo" alcanza,
+      // con otra redacción que la de producción y la de EVAL-005 (sin sobreajuste).
+      expect(description).toMatch(/emplead|equipo/i);
+      expect(description).not.toMatch(/PDF|cita de qué documento|recuperación de contexto/i);
+    });
+
+    it('mantiene el ejemplo vago y lo contrasta con el RAG interno justo después', () => {
+      expect(prompt.examples[vagueIndex]?.description).toMatch(/sistema para mi empresa/i);
+      expect(ragIndex).toBe(vagueIndex + 1);
+      expect(ragIndex).toBe(prompt.examples.length - 1);
+    });
+
+    it('ningún ejemplo agrega notificaciones que la descripción no pide', () => {
+      for (const { description, response } of prompt.examples) {
+        if (response.capabilities.some(({ key }) => key === 'notifications')) {
+          expect(description).toMatch(/notific|recordatorio|aviso/i);
+        }
+      }
+    });
+
+    it('las queries de database de los ejemplos nombran una base relacional', () => {
+      for (const { response } of prompt.examples) {
+        const database = response.capabilities.find(({ key }) => key === 'database');
+        if (database) expect(database.query).toMatch(/relational SQL database/);
+      }
+    });
+
+    it('sigue siendo chico para un modelo de 3B: como mucho 4 ejemplos', () => {
+      expect(prompt.examples.length).toBeLessThanOrEqual(4);
+    });
   });
 
   describe.each(versions)('versión %s', (version) => {

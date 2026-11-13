@@ -167,6 +167,43 @@ describe('descomposición del negocio en capacidades', () => {
       expect(embedQuery).not.toHaveBeenCalled();
     });
 
+    it('si el modelo repite una capacidad, se queda con la primera sin gastar el reintento', async () => {
+      const [auth, payments, video] = OUTPUT.capabilities;
+      const repeated = {
+        ...OUTPUT,
+        capabilities: [auth, payments, { ...video }, { ...video, reason: 'Otra razón' }, auth],
+      };
+      // Una sola respuesta en la cola: si reintentara, el doble fallaría.
+      const { model, calls } = fakeModel(JSON.stringify(repeated));
+
+      const result = await decomposeBusiness(
+        t.db,
+        { description: DESCRIPTION },
+        { model, prompt, embedQuery },
+      );
+
+      expect(calls).toHaveLength(1);
+      if (result.status !== 'OK') throw new Error('se esperaba OK');
+      expect(result.capabilities.map(({ key, reason }) => [key, reason])).toEqual(
+        OUTPUT.capabilities.map(({ key, reason }) => [key, reason]),
+      );
+    });
+
+    it('si al quitar las repetidas quedan menos de 3 capacidades, reintenta', async () => {
+      const [auth, payments] = OUTPUT.capabilities;
+      const tooFew = { ...OUTPUT, capabilities: [auth, payments, auth] };
+      const { model, calls } = fakeModel(JSON.stringify(tooFew), JSON.stringify(OUTPUT));
+
+      const result = await decomposeBusiness(
+        t.db,
+        { description: DESCRIPTION },
+        { model, prompt, embedQuery },
+      );
+
+      expect(calls).toHaveLength(2);
+      expect(result.status).toBe('OK');
+    });
+
     it('si la respuesta no cumple el esquema, reintenta una vez mostrándole el error', async () => {
       const invalid = { ...OUTPUT, capabilities: [{ ...OUTPUT.capabilities[0], key: 'Auth!' }] };
       const { model, calls } = fakeModel(JSON.stringify(invalid), JSON.stringify(OUTPUT));
