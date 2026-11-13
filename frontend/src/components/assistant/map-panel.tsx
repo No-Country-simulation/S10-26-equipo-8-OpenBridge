@@ -1,6 +1,6 @@
 'use client';
 
-import { getNodesBounds, ReactFlowProvider, useReactFlow } from '@xyflow/react';
+import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
 import { toPng } from 'html-to-image';
 import { Check, Copy, ImageDown, Maximize2, Plus, TriangleAlert, Waypoints, X } from 'lucide-react';
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -56,7 +56,7 @@ function Inner({
   onReset: () => void;
 }) {
   const desktop = useIsDesktop();
-  const { getNodes } = useReactFlow();
+  const { getZoom } = useReactFlow();
   const mapRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -79,10 +79,26 @@ function Inner({
   async function exportPng() {
     const viewport = mapRef.current?.querySelector<HTMLElement>('.react-flow__viewport');
     if (!viewport) return;
-    const bounds = getNodesBounds(getNodes());
-    const pad = 60;
-    const width = bounds.width + pad * 2;
-    const height = bounds.height + pad * 2;
+    // Se mide lo que realmente está dibujado (nodos, líneas y etiquetas de las conexiones) en
+    // coordenadas del mapa. getNodesBounds dejaba afuera parte del dibujo y el PNG salía cortado.
+    const zoom = getZoom();
+    const origin = viewport.getBoundingClientRect();
+    const parts = viewport.querySelectorAll(
+      '.react-flow__node, .react-flow__edge-path, .react-flow__edgelabel-renderer > *',
+    );
+    if (parts.length === 0) return;
+    const bounds = { x: Infinity, y: Infinity, right: -Infinity, bottom: -Infinity };
+    parts.forEach((part) => {
+      const r = part.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return;
+      bounds.x = Math.min(bounds.x, (r.left - origin.left) / zoom);
+      bounds.y = Math.min(bounds.y, (r.top - origin.top) / zoom);
+      bounds.right = Math.max(bounds.right, (r.right - origin.left) / zoom);
+      bounds.bottom = Math.max(bounds.bottom, (r.bottom - origin.top) / zoom);
+    });
+    const pad = 40;
+    const width = Math.ceil(bounds.right - bounds.x + pad * 2);
+    const height = Math.ceil(bounds.bottom - bounds.y + pad * 2);
     try {
       const url = await toPng(viewport, {
         backgroundColor: getComputedStyle(document.body).backgroundColor,
