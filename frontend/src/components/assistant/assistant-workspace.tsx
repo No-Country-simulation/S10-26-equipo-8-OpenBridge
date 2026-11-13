@@ -16,6 +16,7 @@ import { namedComponents } from '@/lib/assistant-format';
 
 const ADJUST_HINT =
   'Por ahora puedo reemplazar herramientas de la propuesta: nombrá cuál querés cambiar (por ejemplo, «cambiá Authelia»).';
+const TOO_LONG_HINT = `Con eso la descripción supera los ${MAX_DESCRIPTION.toLocaleString('es-AR')} caracteres. Empezá una nueva consulta con todo junto y más corto.`;
 
 type State =
   | { status: 'idle' }
@@ -36,6 +37,10 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
   // "Nueva consulta".
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [exclude, setExclude] = useState<string[]>([]);
+  // Respuestas a las preguntas del asistente cuando faltó contexto: se suman a la descripción
+  // original en cada pedido (reintentos y ajustes incluidos) hasta "Nueva consulta".
+  const [clarifications, setClarifications] = useState<string[]>([]);
+  const needsContext = state.status === 'error' && state.error.code === 'INSUFFICIENT_CONTEXT';
   // La última propuesta que llegó: un ajuste se puede pedir aunque el reintento haya fallado.
   const lastProposal = useRef<Proposal | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -56,10 +61,26 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
     }
   }
 
-  function run(description: string, excluded = exclude) {
+  const withContext = (description: string, extra = clarifications) =>
+    [description, ...extra].join('\n\n');
+
+  function run(description: string, excluded = exclude, extra = clarifications) {
     setSubmitted(description);
     setState({ status: 'loading', stage: 'ANALYZING' });
-    return stream(description, excluded);
+    return stream(withContext(description, extra), excluded);
+  }
+
+  // Si faltó contexto, lo que se escribe responde las preguntas: se suma a la descripción y se
+  // vuelve a pedir la propuesta.
+  function clarify(description: string, text: string) {
+    const extra = [...clarifications, text];
+    if (withContext(description, extra).length > MAX_DESCRIPTION) {
+      setAdjustments((list) => [...list, { text, hint: TOO_LONG_HINT }]);
+      return;
+    }
+    setClarifications(extra);
+    setAdjustments((list) => [...list, { text }]);
+    void run(description, exclude, extra);
   }
 
   // Un ajuste reemplaza las herramientas de la propuesta actual que el texto nombra: se excluyen
@@ -67,6 +88,7 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
   // explica qué se puede pedir sin llamar a la API.
   function adjust(text: string) {
     if (!submitted || state.status === 'loading') return;
+    if (needsContext) return clarify(submitted, text);
     const named = lastProposal.current ? namedComponents(lastProposal.current, text) : [];
     if (named.length === 0) {
       setAdjustments((list) => [...list, { text, hint: ADJUST_HINT }]);
@@ -92,6 +114,7 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
     setSubmitted(null);
     setAdjustments([]);
     setExclude([]);
+    setClarifications([]);
     lastProposal.current = null;
     setState({ status: 'idle' });
   }
@@ -105,6 +128,7 @@ export function AssistantWorkspace({ initialDescription = '' }: { initialDescrip
           initialDraft={autoStart ? '' : initialDescription}
           loadingStage={state.status === 'loading' ? state.stage : null}
           adjustments={adjustments}
+          needsContext={needsContext}
           proposal={state.status === 'done' ? state.proposal : undefined}
           onSubmit={(description) => run(description)}
           onAdjust={adjust}
