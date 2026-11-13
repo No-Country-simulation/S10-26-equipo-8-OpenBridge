@@ -8,16 +8,23 @@ import { assistantRouter } from '../../src/assistant/routes.js';
 import {
   CANDIDATES_FOR_PROPOSAL,
   CANDIDATES_WITH_LICENSE_FILTER,
+  candidateLimit,
   createProposal,
   ProposalAbortedError,
   RetrievalTimeoutError,
 } from '../../src/assistant/proposal.js';
-import { proposalSchema, type ModelOutput } from '../../src/assistant/schema.js';
+import {
+  MAX_EXCLUDED,
+  proposalRequestSchema,
+  proposalSchema,
+  type ModelOutput,
+} from '../../src/assistant/schema.js';
 import { upsertEmbedding } from '../../src/db/embeddings.js';
 import { upsertRepository } from '../../src/db/repositories.js';
 import { category, integrationIdea } from '../../src/db/schema.js';
 import { seedCategories } from '../../src/db/seed.js';
 import { ModelTimeoutError, type IdeaModel } from '../../src/ideas/model.js';
+import { MAX_SEARCH_LIMIT } from '../../src/search/schema.js';
 import { searchCatalog, type EmbedQuery } from '../../src/search/service.js';
 import { fakeModel, vectorWithSimilarity } from '../helpers/assistant.js';
 import { createTestDb, type TestDb } from '../helpers/test-db.js';
@@ -263,6 +270,55 @@ describe('propuesta de stack', () => {
       );
     });
 
+    it('con exclusiones, reemplaza el componente excluido por el siguiente real', async () => {
+      const result = await createProposal(
+        t.db,
+        { description: DESCRIPTION, constraints: { exclude: [ids.keycloak] } },
+        { model: fakeModel(JSON.stringify(OUTPUT)).model, prompt, embedQuery },
+      );
+
+      if (result.status !== 'OK') throw new Error('se esperaba OK');
+      const auth = result.proposal.components.find((c) => c.capability === 'auth');
+      expect(auth?.repository.id).toBe(ids.authelia);
+      expect(JSON.stringify(result.proposal)).not.toContain(ids.keycloak);
+    });
+
+    it('con exclusiones, trae más candidatos para que los excluidos no tapen opciones reales', async () => {
+      const limits: Array<number | undefined> = [];
+      const search: typeof searchCatalog = async (db, input, deps) => {
+        limits.push(input.limit);
+        return searchCatalog(db, input, deps);
+      };
+
+      await createProposal(
+        t.db,
+        { description: DESCRIPTION, constraints: { exclude: [ids.keycloak, ids.authelia] } },
+        { model: fakeModel(JSON.stringify(OUTPUT)).model, prompt, embedQuery, search },
+      );
+
+      expect([...new Set(limits)]).toEqual([CANDIDATES_FOR_PROPOSAL + 2]);
+    });
+
+    it('el límite de candidatos crece con las exclusiones hasta el máximo de la búsqueda', () => {
+      const many = Array.from({ length: MAX_EXCLUDED }, () => randomUUID());
+      expect(candidateLimit({})).toBe(CANDIDATES_FOR_PROPOSAL);
+      expect(candidateLimit({ licenses: ['mit'] })).toBe(CANDIDATES_WITH_LICENSE_FILTER);
+      expect(candidateLimit({ exclude: many.slice(0, 3) })).toBe(CANDIDATES_FOR_PROPOSAL + 3);
+      expect(candidateLimit({ licenses: ['mit'], exclude: many.slice(0, 1) })).toBe(
+        CANDIDATES_WITH_LICENSE_FILTER + 1,
+      );
+      expect(candidateLimit({ exclude: many })).toBe(MAX_SEARCH_LIMIT);
+    });
+
+    it('descarta ids repetidos en exclude', () => {
+      const id = randomUUID();
+      const parsed = proposalRequestSchema.parse({
+        description: DESCRIPTION,
+        constraints: { exclude: [id, id.toUpperCase(), id] },
+      });
+      expect(parsed.constraints.exclude).toEqual([id]);
+    });
+
     it('descarta candidatos cuyo id no existe en el catálogo', async () => {
       const ghost = randomUUID();
       const search: typeof searchCatalog = async (db, input, deps) => {
@@ -470,15 +526,29 @@ describe('propuesta de stack', () => {
         reason: 'licencias no son texto',
         body: { description: DESCRIPTION, constraints: { licenses: [1] } },
       },
+      {
+        reason: 'exclude con un id que no es UUID',
+        body: { description: DESCRIPTION, constraints: { exclude: ['authelia'] } },
+      },
+      {
+        reason: `exclude con más de ${MAX_EXCLUDED} ids`,
+        body: {
+          description: DESCRIPTION,
+          constraints: {
+            exclude: Array.from({ length: MAX_EXCLUDED + 1 }, () => randomUUID()),
+          },
+        },
+      },
     ])('responde 400 VALIDATION_ERROR: $reason', async ({ body }) => {
-      const res = await request(
-        createApp({ db: t.db, embedQuery, assistantModel: fakeModel().model }),
-      )
+      const { model } = fakeModel();
+      const res = await request(createApp({ db: t.db, embedQuery, assistantModel: model }))
         .post('/api/v1/assistant/proposals')
         .send(body);
 
       expect(res.status).toBe(400);
+      expect(res.headers['content-type']).toMatch(/^application\/json/);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(model.complete).not.toHaveBeenCalled();
     });
 
     it('responde 413 VALIDATION_ERROR (código del contrato del front) si el cuerpo es enorme', async () => {
@@ -586,6 +656,9 @@ describe('propuesta de stack', () => {
       expect(
         res.body.components.schemas.ProposalRequest.properties.constraints.properties,
       ).toHaveProperty('licenses');
+      expect(
+        res.body.components.schemas.ProposalRequest.properties.constraints.properties.exclude,
+      ).toMatchObject({ type: 'array', maxItems: MAX_EXCLUDED, items: { format: 'uuid' } });
     });
   });
 });

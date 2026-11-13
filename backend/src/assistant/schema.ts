@@ -22,14 +22,23 @@ export const capabilitiesRequestSchema = z.object({
 export type CapabilitiesRequest = z.input<typeof capabilitiesRequestSchema>;
 
 export const MAX_LICENSES = 20;
+export const MAX_EXCLUDED = 20;
 
 // Cuerpo de POST /api/v1/assistant/proposals: lo mismo más las licencias
-// aceptadas (identificadores SPDX; vacío o ausente = cualquiera).
+// aceptadas (identificadores SPDX; vacío o ausente = cualquiera) y los repos
+// que el usuario descartó al pedir un ajuste ("cambiá X"): ids del catálogo
+// que el composer no recomienda ni como alternativa. Los repetidos se
+// descartan.
 export const proposalRequestSchema = capabilitiesRequestSchema.extend({
   constraints: z
     .object({
       minHealth: z.number().int().min(0).max(100).optional(),
       licenses: z.array(z.string().trim().min(1).max(64)).max(MAX_LICENSES).optional(),
+      exclude: z
+        .array(z.uuid().toLowerCase())
+        .max(MAX_EXCLUDED)
+        .transform((ids) => [...new Set(ids)])
+        .optional(),
     })
     .default({}),
 });

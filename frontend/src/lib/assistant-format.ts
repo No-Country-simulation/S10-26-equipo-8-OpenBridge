@@ -167,3 +167,30 @@ export function proposalToMarkdown(proposal: Proposal, title: string) {
   }
   return lines.join('\n');
 }
+
+// Sin tildes y en minúsculas, para comparar lo que escribe el usuario con los nombres de los repos.
+const fold = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+
+// Coincide si `name` aparece como palabra entera: ni letra ni número pegados a los costados.
+function mentions(text: string, name: string) {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(text);
+}
+
+// Ids de los componentes de la propuesta que el texto nombra ("cambiá Authelia"): por el nombre
+// corto del repo o por owner/nombre, sin importar mayúsculas ni tildes y como palabra entera (así
+// "chat" no toca a "chatwoot").
+export function namedComponents(proposal: Proposal, text: string): string[] {
+  const folded = fold(text);
+  return proposal.components
+    .filter(({ repository: { fullName } }) =>
+      [fullName, fullName.slice(fullName.indexOf('/') + 1)].some((name) =>
+        mentions(folded, fold(name)),
+      ),
+    )
+    .map(({ repository }) => repository.id);
+}

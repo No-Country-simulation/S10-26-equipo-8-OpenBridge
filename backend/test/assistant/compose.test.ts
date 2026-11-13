@@ -47,7 +47,7 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000000', now: new Date('2026-
 const compose = (
   capabilities: ComposerCapability[],
   repositories: HydratedRepository[],
-  constraints: { minHealth?: number; licenses?: string[] } = {},
+  constraints: { minHealth?: number; licenses?: string[]; exclude?: string[] } = {},
 ) => composeProposal(capabilities, repositories, constraints, FIXED);
 
 describe('composeProposal', () => {
@@ -386,6 +386,54 @@ describe('composeProposal', () => {
 
       expect(proposal.components[0].alternative?.id).toBe('alt');
       expect(proposal.connections).toEqual([]);
+    });
+  });
+  describe('exclusiones (ajuste "cambiá X")', () => {
+    it('reemplaza el componente excluido por el siguiente del ranking', () => {
+      const proposal = compose(
+        [capability('auth', ['a', 'b', 'c'])],
+        [repo('a', 95), repo('b', 90), repo('c', 80)],
+        { exclude: ['a'] },
+      );
+
+      expect(proposal.components.map((c) => c.repository.id)).toEqual(['b']);
+      expect(proposal.components[0].alternative).toEqual({ id: 'c', fullName: 'acme/c' });
+    });
+
+    it('no usa un repo excluido como alternativa', () => {
+      const proposal = compose(
+        [capability('auth', ['a', 'b', 'c'])],
+        [repo('a', 95), repo('b', 90), repo('c', 80)],
+        { exclude: ['b'] },
+      );
+
+      expect(proposal.components[0].repository.id).toBe('a');
+      expect(proposal.components[0].alternative).toEqual({ id: 'c', fullName: 'acme/c' });
+    });
+
+    it('excluye el repo en todas las capacidades, también como componente repetido', () => {
+      const proposal = compose(
+        [capability('database', ['pg', 'my']), capability('cache', ['pg'])],
+        [repo('pg', 95), repo('my', 80)],
+        { exclude: ['pg'] },
+      );
+
+      expect(proposal.components.map((c) => [c.capability, c.repository.id])).toEqual([
+        ['database', 'my'],
+      ]);
+      expect(JSON.stringify(proposal)).not.toContain('"pg"');
+      expect(proposal.gaps).toEqual([{ capability: 'cache', message: NO_MATURE_OPTION }]);
+    });
+
+    it('si todos los candidatos están excluidos, la capacidad va a gaps', () => {
+      const proposal = compose(
+        [capability('auth', ['a', 'b']), capability('database', ['pg'])],
+        [repo('a', 95), repo('b', 90), repo('pg', 90)],
+        { exclude: ['a', 'b'] },
+      );
+
+      expect(proposal.components.map((c) => c.capability)).toEqual(['database']);
+      expect(proposal.gaps).toEqual([{ capability: 'auth', message: NO_MATURE_OPTION }]);
     });
   });
 });

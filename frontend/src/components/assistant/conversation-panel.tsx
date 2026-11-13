@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowUp, Copy, LoaderCircle, RotateCcw, Square } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import { Fragment, useState, type KeyboardEvent } from 'react';
 import { isCopyleft } from '@/components/shared/license-badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,14 +36,22 @@ const examples = [
 const fieldClass =
   'h-9 w-full rounded-md border border-border bg-background px-3 text-[13px] outline-none placeholder:text-muted-foreground focus-visible:border-foreground/40 disabled:opacity-60';
 
+// Un ajuste que pidió el usuario y, si no se pudo aplicar, la explicación del asistente.
+export type Adjustment = { text: string; hint?: string };
+
+const userBubbleClass =
+  'max-w-[88%] self-end rounded-lg border border-border bg-muted p-3 text-[13px] leading-5';
+
 type Props = {
   // Lo que se envió en la última consulta; null mientras no hay conversación.
   submitted: string | null;
+  adjustments?: Adjustment[];
   // Texto que llega desde el home sin poder enviarse (muy corto o muy largo).
   initialDraft?: string;
   loadingStage: ProposalStage | null;
   proposal?: Proposal;
   onSubmit: (description: string) => void;
+  onAdjust: (text: string) => void;
   onStop: () => void;
   onRetry: () => void;
 };
@@ -57,10 +65,12 @@ function sendOnEnter(e: KeyboardEvent, send: () => void) {
 
 export function ConversationPanel({
   submitted,
+  adjustments = [],
   initialDraft = '',
   loadingStage,
   proposal,
   onSubmit,
+  onAdjust,
   onStop,
   onRetry,
 }: Props) {
@@ -91,7 +101,7 @@ export function ConversationPanel({
   function sendAdjust() {
     const text = adjust.trim();
     if (!text || !submitted || loading) return;
-    onSubmit(`${submitted} Ajuste: ${text}`.slice(0, MAX_DESCRIPTION));
+    onAdjust(text);
     setAdjust('');
   }
 
@@ -236,9 +246,14 @@ export function ConversationPanel({
   return (
     <section aria-label="Conversación" className="flex min-h-0 flex-col lg:h-full">
       <div className="flex flex-1 flex-col gap-5 p-4 lg:overflow-y-auto lg:p-5">
-        <p className="max-w-[88%] self-end rounded-lg border border-border bg-muted p-3 text-[13px] leading-5">
-          {submitted}
-        </p>
+        <p className={userBubbleClass}>{submitted}</p>
+
+        {adjustments.map((item, index) => (
+          <Fragment key={index}>
+            <p className={userBubbleClass}>{item.text}</p>
+            {item.hint && <p className="text-[13px] leading-5">{item.hint}</p>}
+          </Fragment>
+        ))}
 
         {loading && (
           <div className="flex flex-col items-start gap-3">
