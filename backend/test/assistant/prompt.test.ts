@@ -15,9 +15,10 @@ describe('prompt de capacidades', () => {
     expect(versions).toContain('v1');
   });
 
-  it('la app usa v2: tipo de integración y dependencias por capacidad', () => {
-    expect(versions).toContain('v2');
-    expect(CAPABILITIES_PROMPT_VERSION).toBe('v2');
+  it('la app usa v3: mismo esquema que v2 (tipo de integración y dependencias)', () => {
+    expect(versions).toEqual(expect.arrayContaining(['v1', 'v2', 'v3']));
+    expect(CAPABILITIES_PROMPT_VERSION).toBe('v3');
+    expect(modelOutputSchemaFor('v3')).toBe(modelOutputSchemaFor('v2'));
     const prompt = loadCapabilitiesPrompt();
     expect(prompt.system).toContain('integrationType');
     expect(prompt.system).toContain('dependsOn');
@@ -34,6 +35,38 @@ describe('prompt de capacidades', () => {
         }
       }
     }
+  });
+
+  describe('v3: herramienta interna con contexto suficiente', () => {
+    const prompt = loadCapabilitiesPrompt('v3');
+    const vagueIndex = prompt.examples.findIndex(({ response }) => !response.sufficientContext);
+    const internalIndex = prompt.examples.findIndex(
+      ({ description, response }) =>
+        response.sufficientContext && /emplead|equipo/i.test(description),
+    );
+
+    it('la regla 2 aclara que no hace falta el rubro ni el tamaño de la empresa', () => {
+      expect(prompt.system).toMatch(/para los empleados/i);
+      expect(prompt.system).toMatch(/cantidad de empleados/i);
+    });
+
+    it('sigue pidiendo contexto ante "un sistema para mi empresa que use IA"', () => {
+      expect(prompt.examples[vagueIndex]?.description).toMatch(/sistema para mi empresa/i);
+    });
+
+    // Justo después del vago (los archivos llevan prefijo numérico para fijar
+    // el orden): con qwen2.5:3b fue el orden que no rompió otros casos del
+    // conjunto de evaluación (OB-37).
+    it('contrasta el ejemplo vago con una herramienta interna que sí alcanza, justo después', () => {
+      expect(internalIndex).toBeGreaterThanOrEqual(0);
+      expect(internalIndex).toBe(vagueIndex + 1);
+      expect(internalIndex).toBe(prompt.examples.length - 1);
+      const { response } = prompt.examples[internalIndex]!;
+      expect(response.missingContext).toEqual([]);
+      expect(response.capabilities.map(({ key }) => key)).toEqual(
+        expect.arrayContaining(['auth', 'database', 'search', 'ai']),
+      );
+    });
   });
 
   describe.each(versions)('versión %s', (version) => {

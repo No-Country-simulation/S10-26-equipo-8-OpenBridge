@@ -10,9 +10,14 @@ export const PROPOSAL_TIMEOUT_MS = 30_000;
 
 export type ProposalStage = 'ANALYZING' | 'RETRIEVING' | 'COMPOSING';
 
+// Hasta cuántos repos acepta exclude el backend.
+export const MAX_EXCLUDED = 20;
+
 export type ProposalConstraints = {
   minHealth?: number;
   licenses?: string[];
+  // Ids de repos que el usuario pidió cambiar: no vuelven ni como alternativa.
+  exclude?: string[];
 };
 
 export type Proposal = {

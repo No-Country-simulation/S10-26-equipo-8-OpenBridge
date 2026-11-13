@@ -52,10 +52,8 @@ export function ToolDrawer({ proposal, id, onClose }: Props) {
 
       <section className="flex flex-col gap-1">
         <h3 className="text-[13px] font-semibold">Por qué se eligió</h3>
-        <p className="text-[13px] leading-5 text-muted-foreground">
-          {capability?.reason ? `${capability.reason}. ` : ''}
-          {component.justification}
-        </p>
+        {/* La justificación del backend ya empieza con la razón de la capacidad. */}
+        <p className="text-[13px] leading-5 text-muted-foreground">{component.justification}</p>
       </section>
 
       {links.length > 0 && (

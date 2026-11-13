@@ -15,7 +15,7 @@ import type { EmbedQuery } from './search/service.js';
 
 // El front corta a los 30 s: cada intento tiene hasta 20 s, y entre los dos
 // no pasan de 25 s en capacidades ni de 23 s en propuestas (ver
-// decomposeBusiness y createProposal). Prompt v2: los ejemplos ocupan ~275
+// decomposeBusiness y createProposal). Prompt v2/v3: los ejemplos ocupan ~275
 // caracteres por capacidad (v1: ~220; integrationType y dependsOn suman ~55),
 // así que 8 capacidades son ~2.200 caracteres, unos 750-900 tokens. 1.536
 // sigue dejando margen; más tope solo le daría más tiempo a un modelo que
